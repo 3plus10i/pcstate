@@ -30,11 +30,22 @@ hwnd_idle = None
 
 
 def get_script_dir():
-    """获取脚本所在目录"""
+    """获取脚本所在目录（exe所在目录，用于logs/temp等运行时文件）"""
     if getattr(sys, 'frozen', False):
         return os.path.dirname(sys.executable)
     else:
         return os.path.dirname(os.path.abspath(__file__))
+
+
+def get_resource_path(relative_path):
+    """获取资源文件路径（打包后从_MEIPASS解压目录读取）"""
+    if getattr(sys, 'frozen', False):
+        # PyInstaller 打包后，资源文件在 _MEIPASS 临时目录
+        base_path = sys._MEIPASS
+    else:
+        # 开发环境，资源文件在项目目录
+        base_path = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base_path, relative_path)
 
 
 def create_window():
@@ -67,7 +78,9 @@ def wnd_proc(hwnd, msg, wparam, lparam):
 
     elif msg == win32con.WM_COMMAND:
         cmd = wparam & 0xFFFF
-        if cmd == 1001:
+        if cmd == 1000:
+            open_project_homepage()
+        elif cmd == 1001:
             open_viewer()
         elif cmd == 1002:
             open_log_file()
@@ -105,10 +118,9 @@ def add_tray_icon(hwnd, status='idle'):
     """添加系统托盘图标"""
     global hwnd_active, hwnd_idle
 
-    # 加载图标
-    script_dir = get_script_dir()
-    icon_active_path = os.path.join(script_dir, 'public', 'icon_active.ico')
-    icon_idle_path = os.path.join(script_dir, 'public', 'icon_idle.ico')
+    # 加载图标（从资源目录读取，打包后在_MEIPASS）
+    icon_active_path = get_resource_path(os.path.join('public', 'icon_active.ico'))
+    icon_idle_path = get_resource_path(os.path.join('public', 'icon_idle.ico'))
 
     # 尝试加载自定义图标，失败则使用系统图标
     hicon_active = load_icon(icon_active_path)
@@ -164,9 +176,16 @@ def update_tray_icon(status):
     win32gui.Shell_NotifyIcon(win32gui.NIM_MODIFY, nid)
 
 
+def open_project_homepage():
+    """打开项目主页"""
+    webbrowser.open('https://github.com/3plus10i/pcstate')
+
+
 def show_menu(hwnd):
     """显示托盘菜单"""
     menu = win32gui.CreatePopupMenu()
+    win32gui.AppendMenu(menu, win32con.MF_STRING, 1000, "PCState状态监控")
+    win32gui.AppendMenu(menu, win32con.MF_SEPARATOR, 0, "")
     win32gui.AppendMenu(menu, win32con.MF_STRING, 1001, "查看报表")
     win32gui.AppendMenu(menu, win32con.MF_STRING, 1002, "查看日志")
     win32gui.AppendMenu(menu, win32con.MF_STRING, 1003, "安装目录")
@@ -194,24 +213,85 @@ def open_log_file():
         print("日志文件尚未创建")
 
 
+def generate_data_js():
+    """生成数据JS文件（内嵌gen_data.py功能）"""
+    import json
+    from datetime import date, timedelta
+
+    def get_recent_dates(days=14):
+        dates = []
+        today = date.today()
+        for i in range(days):
+            d = today - timedelta(days=i)
+            dates.append(d.strftime('%Y-%m-%d'))
+        return dates
+
+    def parse_log_file(filepath):
+        slots = [0] * 288
+        if not os.path.exists(filepath):
+            return slots
+
+        minute_set = set()
+        try:
+            with open(filepath, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if line and len(line) == 4:
+                        minute_set.add(line)
+        except Exception:
+            return slots
+
+        for minute_str in minute_set:
+            try:
+                hour = int(minute_str[:2])
+                minute = int(minute_str[2:4])
+                slot = hour * 12 + minute // 5
+                if 0 <= slot < 288:
+                    slots[slot] = min(slots[slot] + 1, 5)
+            except ValueError:
+                continue
+        return slots
+
+    script_dir = get_script_dir()
+    log_dir = os.path.join(script_dir, 'logs')
+    temp_dir = os.path.join(script_dir, 'temp')
+    os.makedirs(temp_dir, exist_ok=True)
+    output_file = os.path.join(temp_dir, 'data.js')
+
+    log_data = []
+    dates = get_recent_dates(14)
+
+    for date_str in dates:
+        filename = os.path.join(log_dir, f'pcstate-{date_str}.log')
+        slots = parse_log_file(filename)
+        log_data.append(slots)
+
+    js_content = f"const LOG_DATA = {json.dumps(log_data, ensure_ascii=False)};\n"
+    js_content += f"const DATES = {json.dumps(dates, ensure_ascii=False)};\n"
+
+    with open(output_file, 'w', encoding='utf-8') as f:
+        f.write(js_content)
+
+    valid_days = sum(1 for slots in log_data if sum(slots) > 0)
+    print(f"已生成 data.js，{valid_days} 天有效数据")
+    return True
+
+
 def open_viewer():
     """生成数据并打开可视化报表"""
     import shutil
     script_dir = get_script_dir()
-    gen_data_path = os.path.join(script_dir, 'gen_data.py')
     temp_dir = os.path.join(script_dir, 'temp')
-    public_dir = os.path.join(script_dir, 'public')
-    viewer_template = os.path.join(public_dir, 'viewer.html')
+    viewer_template = get_resource_path(os.path.join('public', 'viewer.html'))
     viewer_path = os.path.join(temp_dir, 'viewer.html')
 
     # 确保temp目录存在
     os.makedirs(temp_dir, exist_ok=True)
 
-    # 运行gen_data.py生成数据
+    # 生成数据文件
     try:
-        subprocess.run([sys.executable, gen_data_path], check=True, capture_output=True)
-        print("数据生成完成")
-    except subprocess.CalledProcessError as e:
+        generate_data_js()
+    except Exception as e:
         print(f"生成数据失败: {e}")
         return
 

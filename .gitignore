@@ -3,3 +3,7 @@ logs/
 .venv/
 __pycache__/
 .vscode/
+release/
+build/
+dist/
+*.spec

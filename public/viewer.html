@@ -228,7 +228,9 @@
     </div>
 
     <div class="footer">
-        PCState 活动状态监控 · 数据页生成于 <span id="generated-date"></span>
+        <a href="https://github.com/3plus10i/pcstate" target="_blank" style="color: #1890ff; text-decoration: none;"></a>PCState 状态监控</a>
+        <br>
+        数据页生成于 <span id="generated-date"></span>
     </div>
 
     <script src="data.js"></script>
@@ -379,12 +381,6 @@
         const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
         const d = new Date(dateStr);
         const weekDay = '(' + weekDays[d.getDay()] + ')';
-        
-        const today = new Date().toISOString().split('T')[0];
-        const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-        
-        if (dateStr === today) return '今天' + weekDay;
-        if (dateStr === yesterday) return '昨天' + weekDay;
         
         return (d.getMonth() + 1) + '/' + d.getDate() + weekDay;
     }
