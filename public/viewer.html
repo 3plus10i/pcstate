@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>PC状态</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f0f2f5; 
+            color: rgba(0, 0, 0, 0.85);
+            padding: 40px 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .card {
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            padding: 24px;
+            margin-bottom: 16px;
+        }
+        
+        h1 { 
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: rgba(0, 0, 0, 0.85);
+        }
+        
+        .dates { 
+            margin-bottom: 20px;
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 8px;
+        }
+        
+        .dates button {
+            padding: 6px 16px;
+            border: 1px solid #d9d9d9;
+            background: #fff;
+            cursor: pointer;
+            font-size: 14px;
+            border-radius: 4px;
+            transition: all 0.3s;
+            color: rgba(0, 0, 0, 0.65);
+        }
+        
+        .dates button:hover { 
+            color: #1890ff;
+            border-color: #1890ff;
+        }
+        
+        .dates button.active { 
+            background: #1890ff;
+            color: #fff;
+            border-color: #1890ff;
+        }
+        
+        .wall-wrapper {
+            display: flex;
+            gap: 24px;
+            align-items: flex-start;
+        }
+        
+        .overview {
+            flex-shrink: 0;
+            width: 160px;
+            font-size: 16px;
+            color: rgba(0, 0, 0, 0.45);
+            background: #fff;
+            border-radius: 4px;
+            border: 1px solid #d9d9d9;
+            overflow: hidden;
+        }
+        
+        .overview-title {
+            font-weight: 500;
+            color: rgba(0, 0, 0, 0.65);
+            padding: 8px 12px;
+            background: #fafafa;
+            border-bottom: 1px solid #d9d9d9;
+        }
+        
+        #overview-list {
+            border-top: 1px solid #d9d9d9;
+        }
+        
+        .overview-item {
+            padding: 6px 12px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            border-bottom: 1px solid #e8e8e8;
+        }
+        
+        .overview-item:last-child {
+            border-bottom: none;
+        }
+        
+        .overview-item .date {
+            display: inline-block;
+            width: 70px;
+        }
+        
+        .overview-item .duration {
+            color: #1890ff;
+            font-weight: 500;
+        }
+        
+        .wall-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .wall-row {
+            display: flex;
+            align-items: center;
+            position: relative;
+        }
+        
+        .time-label-top {
+            position: absolute;
+            top: -20px;
+            font-size: 11px;
+            color: rgba(0, 0, 0, 0.45);
+            transform: translateX(-50%);
+            white-space: nowrap;
+        }
+        
+        .time-label-left {
+            position: absolute;
+            left: -40px;
+            font-size: 11px;
+            color: rgba(0, 0, 0, 0.45);
+            text-align: right;
+            width: 32px;
+            transform: translateY(-50%);
+        }
+        
+        #wallCanvas { 
+            display: block;
+            background: #fafafa;
+            border-radius: 4px;
+        }
+        
+        .info {
+            font-size: 14px;
+            color: rgba(0, 0, 0, 0.45);
+            margin-bottom: 20px;
+            padding: 12px 16px;
+            background: #fafafa;
+            border-radius: 4px;
+            line-height: 1.6;
+        }
+
+        .info-date {
+            font-weight: 500;
+            color: rgba(0, 0, 0, 0.65);
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .legend {
+            margin-top: 20px;
+            font-size: 13px;
+            color: rgba(0, 0, 0, 0.45);
+            padding: 12px 16px;
+            background: #fafafa;
+            border-radius: 4px;
+            line-height: 1.6;
+        }
+
+        .legend-title {
+            font-weight: 500;
+            color: rgba(0, 0, 0, 0.65);
+            margin-bottom: 8px;
+        }
+
+        .footer {
+            max-width: 800px;
+            margin: 0 auto;
+            text-align: center;
+            padding: 24px 20px;
+            font-size: 13px;
+            color: rgba(0, 0, 0, 0.45);
+            line-height: 1.8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <h1>PC活动状态监控</h1>
+            <div class="dates" id="dates"></div>
+            
+            <div class="wall-wrapper">
+                <div class="overview">
+                    <div class="overview-title">近14天活跃</div>
+                    <div id="overview-list"></div>
+                </div>
+                
+                <div class="wall-container">
+                    <div class="info" id="info">加载数据中...</div>
+                
+                <div class="wall-row" id="wallRow">
+                    <canvas id="wallCanvas"></canvas>
+                </div>
+                <div class="legend">
+                    <div class="legend-title">活跃度说明</div>
+                    <div>每个小格表示5分钟，颜色越深表示这片时间中活跃越多。</div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="footer">
+        PCState 活动状态监控 · 数据页生成于 <span id="generated-date"></span>
+    </div>
+
+    <script src="data.js"></script>
+    <script>
+    // 24行 x 12列 = 288个5分钟时间片
+    class StatusWall {
+        constructor(canvasId) {
+            this.canvas = document.getElementById(canvasId);
+            this.ctx = this.canvas.getContext('2d');
+            this.rows = 24;
+            this.cols = 12;
+            this.size = 14;
+            this.baseGap = 1.5;
+
+            // 6种颜色：灰色 + 5级蓝色渐变
+            this.colors = ['#eee', '#cce5ff', '#99ccff', '#66b2ff', '#3399ff', '#007bff'];
+
+            // 预先计算每个间隔的大小
+            this.colGaps = [];
+            for (let c = 1; c < this.cols; c++) {
+                this.colGaps[c] = (c % 3 === 0) ? this.baseGap * 2 : this.baseGap;
+            }
+            this.rowGaps = [];
+            for (let r = 1; r < this.rows; r++) {
+                this.rowGaps[r] = (r % 4 === 0) ? this.baseGap * 4 : this.baseGap;
+            }
+
+            // 预先计算所有格子的坐标
+            this.cellX = [0];
+            let accX = this.size;
+            for (let c = 1; c < this.cols; c++) {
+                accX += this.colGaps[c];
+                this.cellX[c] = accX;
+                accX += this.size;
+            }
+
+            this.cellY = [0];
+            let accY = this.size;
+            for (let r = 1; r < this.rows; r++) {
+                accY += this.rowGaps[r];
+                this.cellY[r] = accY;
+                accY += this.size;
+            }
+
+            // 计算画布大小
+            let w = this.cols * this.size;
+            for (let c = 1; c < this.cols; c++) w += this.colGaps[c];
+            let h = this.rows * this.size;
+            for (let r = 1; r < this.rows; r++) h += this.rowGaps[r];
+            this.canvas.width = w;
+            this.canvas.height = h;
+
+            // 创建时间标签
+            this.createTimeLabels();
+        }
+
+        // 获取指定列的左边缘x坐标
+        getColLeft(col) {
+            if (col >= this.cols) {
+                // 超出最后一列，返回canvas右边缘
+                return this.canvas.width;
+            }
+            return this.cellX[col];
+        }
+
+        // 获取指定行的中心y坐标
+        getRowCenter(row) {
+            return this.cellY[row] + this.size / 2;
+        }
+
+        // 创建时间标签
+        createTimeLabels() {
+            const container = document.getElementById('wallRow');
+
+            // 顶部分钟标记：0分、30分、60分
+            const minuteMarks = [
+                { col: 0, text: '0分' },
+                { col: 6, text: '30分' },
+                { col: 12, text: '60分' }
+            ];
+
+            minuteMarks.forEach(mark => {
+                const label = document.createElement('div');
+                label.className = 'time-label-top';
+                label.textContent = mark.text;
+                label.style.left = this.getColLeft(mark.col) + 'px';
+                container.appendChild(label);
+            });
+
+            // 左侧小时标记：0时、4时、8时、12时、16时、20时、23时
+            const hourMarks = [0, 4, 8, 12, 16, 20, 23];
+            hourMarks.forEach(row => {
+                const label = document.createElement('div');
+                label.className = 'time-label-left';
+                label.textContent = row + '时';
+                label.style.top = this.getRowCenter(row) + 'px';
+                container.appendChild(label);
+            });
+        }
+        
+        render(slots) {
+            this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+            for (let r = 0; r < this.rows; r++) {
+                for (let c = 0; c < this.cols; c++) {
+                    const idx = r * this.cols + c;
+                    const val = Math.min(slots[idx] || 0, 5);
+                    this.ctx.fillStyle = this.colors[val];
+
+                    const x = this.cellX[c];
+                    const y = this.cellY[r];
+
+                    this.ctx.beginPath();
+                    this.roundRect(x, y, this.size, this.size, 2);
+                    this.ctx.fill();
+                }
+            }
+        }
+        
+        roundRect(x, y, w, h, r) {
+            this.ctx.moveTo(x + r, y);
+            this.ctx.lineTo(x + w - r, y);
+            this.ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+            this.ctx.lineTo(x + w, y + h - r);
+            this.ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+            this.ctx.lineTo(x + r, y + h);
+            this.ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+            this.ctx.lineTo(x, y + r);
+            this.ctx.quadraticCurveTo(x, y, x + r, y);
+        }
+    }
+
+    const wall = new StatusWall('wallCanvas');
+
+    // 设置页脚生成日期
+    function setGeneratedDate() {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        document.getElementById('generated-date').textContent =
+            `${year}-${month}-${day} ${hours}:${minutes}`;
+    }
+
+    function formatDate(dateStr) {
+        const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
+        const d = new Date(dateStr);
+        const weekDay = '(' + weekDays[d.getDay()] + ')';
+        
+        const today = new Date().toISOString().split('T')[0];
+        const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+        
+        if (dateStr === today) return '今天' + weekDay;
+        if (dateStr === yesterday) return '昨天' + weekDay;
+        
+        return (d.getMonth() + 1) + '/' + d.getDate() + weekDay;
+    }
+
+    async function main() {
+        if (!LOG_DATA || !DATES) {
+            document.getElementById('info').textContent = '数据加载失败';
+            return;
+        }
+        
+        const container = document.getElementById('dates');
+        const overviewList = document.getElementById('overview-list');
+        
+        // 生成总览列表
+        for (let i = 0; i < DATES.length; i++) {
+            const slots = LOG_DATA[i] || [];
+            const totalMinutes = slots.reduce((s, v) => s + v, 0);
+            const hours = (totalMinutes / 60).toFixed(1);
+            
+            const item = document.createElement('div');
+            item.className = 'overview-item';
+            item.innerHTML = `<span class="date">${formatDate(DATES[i])}</span> <span class="duration">${hours}时</span>`;
+            overviewList.appendChild(item);
+        }
+        
+        // 生成日期按钮
+        for (let i = 0; i < DATES.length; i++) {
+            const dateStr = DATES[i];
+            const btn = document.createElement('button');
+            btn.textContent = formatDate(dateStr);
+            btn.onclick = () => showDay(i, btn);
+            container.appendChild(btn);
+        }
+        
+        if (DATES.length > 0) {
+            showDay(0, container.firstChild);
+        }
+    }
+
+    function showDay(dayIndex, btn) {
+        document.querySelectorAll('.dates button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        const slots = LOG_DATA[dayIndex] || [];
+        const dateStr = DATES[dayIndex];
+
+        wall.render(slots);
+
+        const activeSlots = slots.filter(v => v > 0).length;
+        const totalMinutes = slots.reduce((s, v) => s + v, 0);
+        const hours = (totalMinutes / 60).toFixed(1);
+
+        document.getElementById('info').innerHTML =
+            `<span class="info-date">${dateStr}</span>活跃片数：${activeSlots}/288，共${totalMinutes}分钟(${hours}时)`;
+    }
+
+    setGeneratedDate();
+    main();
+    </script>
+</body>
+</html>
