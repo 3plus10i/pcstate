@@ -38,34 +38,7 @@
             color: rgba(0, 0, 0, 0.85);
         }
         
-        .dates { 
-            margin-bottom: 20px;
-            display: grid;
-            grid-template-columns: repeat(7, 1fr);
-            gap: 8px;
-        }
-        
-        .dates button {
-            padding: 6px 16px;
-            border: 1px solid #d9d9d9;
-            background: #fff;
-            cursor: pointer;
-            font-size: 14px;
-            border-radius: 4px;
-            transition: all 0.3s;
-            color: rgba(0, 0, 0, 0.65);
-        }
-        
-        .dates button:hover { 
-            color: #1890ff;
-            border-color: #1890ff;
-        }
-        
-        .dates button.active { 
-            background: #1890ff;
-            color: #fff;
-            border-color: #1890ff;
-        }
+
         
         .wall-wrapper {
             display: flex;
@@ -97,15 +70,31 @@
         }
         
         .overview-item {
-            padding: 6px 12px;
+            padding: 8px 12px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
             border-bottom: 1px solid #e8e8e8;
+            cursor: pointer;
+            transition: all 0.2s;
         }
         
         .overview-item:last-child {
             border-bottom: none;
+        }
+        
+        .overview-item:hover {
+            background: #e6f7ff;
+        }
+        
+        .overview-item.active {
+            background: #1890ff;
+            color: #fff;
+        }
+        
+        .overview-item.active .date,
+        .overview-item.active .duration {
+            color: #fff;
         }
         
         .overview-item .date {
@@ -204,7 +193,6 @@
     <div class="container">
         <div class="card">
             <h1>PC活动状态监控</h1>
-            <div class="dates" id="dates"></div>
             
             <div class="wall-wrapper">
                 <div class="overview">
@@ -228,7 +216,7 @@
     </div>
 
     <div class="footer">
-        <a href="https://github.com/3plus10i/pcstate" target="_blank" style="color: #1890ff; text-decoration: none;"></a>PCState 状态监控</a>
+        PCState 状态监控 · <a href="https://github.com/3plus10i/pcstate" target="_blank" style="color: #0084ffb0; text-decoration: none;">项目主页 3plus10i/pcstate</a>
         <br>
         数据页生成于 <span id="generated-date"></span>
     </div>
@@ -242,7 +230,7 @@
             this.ctx = this.canvas.getContext('2d');
             this.rows = 24;
             this.cols = 12;
-            this.size = 14;
+            this.size = 16;
             this.baseGap = 1.5;
 
             // 6种颜色：灰色 + 5级蓝色渐变
@@ -391,10 +379,9 @@
             return;
         }
         
-        const container = document.getElementById('dates');
         const overviewList = document.getElementById('overview-list');
         
-        // 生成总览列表
+        // 生成总览列表（可点击）
         for (let i = 0; i < DATES.length; i++) {
             const slots = LOG_DATA[i] || [];
             const totalMinutes = slots.reduce((s, v) => s + v, 0);
@@ -403,26 +390,21 @@
             const item = document.createElement('div');
             item.className = 'overview-item';
             item.innerHTML = `<span class="date">${formatDate(DATES[i])}</span> <span class="duration">${hours}时</span>`;
+            item.onclick = () => showDay(i, item);
             overviewList.appendChild(item);
         }
         
-        // 生成日期按钮
-        for (let i = 0; i < DATES.length; i++) {
-            const dateStr = DATES[i];
-            const btn = document.createElement('button');
-            btn.textContent = formatDate(dateStr);
-            btn.onclick = () => showDay(i, btn);
-            container.appendChild(btn);
-        }
-        
+        // 默认选中第一天
         if (DATES.length > 0) {
-            showDay(0, container.firstChild);
+            showDay(0, overviewList.firstChild);
         }
     }
 
-    function showDay(dayIndex, btn) {
-        document.querySelectorAll('.dates button').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
+    function showDay(dayIndex, element) {
+        // 移除所有active类
+        document.querySelectorAll('.overview-item').forEach(el => el.classList.remove('active'));
+        // 添加active类到当前元素
+        element.classList.add('active');
 
         const slots = LOG_DATA[dayIndex] || [];
         const dateStr = DATES[dayIndex];

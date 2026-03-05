@@ -44,6 +44,8 @@ def build():
         '--hidden-import=win32api',
         '--hidden-import=win32gui',
         '--hidden-import=win32con',
+        '--hidden-import=winshell',
+        '--hidden-import=win32com.client',
         # 图标
         '--icon=public/icon_active.ico',
         # 主程序

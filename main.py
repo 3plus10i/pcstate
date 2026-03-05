@@ -3,6 +3,9 @@ PC状态监控客户端 - 主入口
 系统托盘运行，定时检测PC活跃状态
 使用 Windows API 实现托盘，无需 PIL
 """
+
+VERSION = "1.1"
+
 import threading
 import time
 import os
@@ -19,6 +22,7 @@ import win32con
 # 导入本地模块
 import idle_detector
 import logger
+import startup_manager
 
 
 # 全局状态
@@ -89,6 +93,8 @@ def wnd_proc(hwnd, msg, wparam, lparam):
         elif cmd == 1004:
             running = False
             win32gui.DestroyWindow(hwnd)
+        elif cmd == 1005:
+            toggle_startup()
 
     elif msg == win32con.WM_DESTROY:
         running = False
@@ -181,14 +187,35 @@ def open_project_homepage():
     webbrowser.open('https://github.com/3plus10i/pcstate')
 
 
+def toggle_startup():
+    """切换开机启动状态"""
+    if startup_manager.is_startup_enabled():
+        if startup_manager.remove_from_startup():
+            print("已移除开机启动")
+        else:
+            print("移除开机启动失败")
+    else:
+        if startup_manager.add_to_startup():
+            print("已添加开机启动")
+        else:
+            print("添加开机启动失败")
+
+
 def show_menu(hwnd):
     """显示托盘菜单"""
     menu = win32gui.CreatePopupMenu()
-    win32gui.AppendMenu(menu, win32con.MF_STRING, 1000, "PCState状态监控")
+    win32gui.AppendMenu(menu, win32con.MF_STRING, 1000, "PCState状态监控 v{}".format(VERSION))
     win32gui.AppendMenu(menu, win32con.MF_SEPARATOR, 0, "")
+    
+    # 开机启动选项
+    startup_enabled = startup_manager.is_startup_enabled()
+    startup_text = "开机启动: 已启用" if startup_enabled else "开机启动: 未启用"
+    win32gui.AppendMenu(menu, win32con.MF_STRING, 1005, startup_text)
+    win32gui.AppendMenu(menu, win32con.MF_SEPARATOR, 0, "")
+    
     win32gui.AppendMenu(menu, win32con.MF_STRING, 1001, "查看报表")
     win32gui.AppendMenu(menu, win32con.MF_STRING, 1002, "查看日志")
-    win32gui.AppendMenu(menu, win32con.MF_STRING, 1003, "安装目录")
+    win32gui.AppendMenu(menu, win32con.MF_STRING, 1003, "程序目录")
     win32gui.AppendMenu(menu, win32con.MF_SEPARATOR, 0, "")
     win32gui.AppendMenu(menu, win32con.MF_STRING, 1004, "退出")
 
@@ -311,7 +338,7 @@ def open_viewer():
 
 
 def open_install_dir():
-    """打开安装目录"""
+    """打开程序安装目录"""
     script_dir = get_script_dir()
     os.startfile(script_dir)
 
