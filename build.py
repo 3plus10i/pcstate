@@ -114,7 +114,7 @@ def build():
 
 def create_release():
     """创建发布包"""
-    release_dir = 'release'
+    release_dir = f'release/pcstate-{VERSION}'
     if os.path.exists(release_dir):
         shutil.rmtree(release_dir)
     
@@ -122,13 +122,6 @@ def create_release():
     
     # 复制 exe
     shutil.copy('dist/PCStateMonitor.exe', release_dir)
-    
-    # # 创建必要的目录结构
-    # os.makedirs(os.path.join(release_dir, 'logs'))
-    # os.makedirs(os.path.join(release_dir, 'temp'))
-    
-    # # 复制 public 目录（虽然打包进exe了，但保留一份以防万一）
-    # shutil.copytree('public', os.path.join(release_dir, 'public'))
     
     # 复制 README
     if os.path.exists('README.md'):

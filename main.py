@@ -210,8 +210,8 @@ def show_menu(hwnd):
     win32gui.AppendMenu(menu, win32con.MF_STRING, 1005, startup_text)
     win32gui.AppendMenu(menu, win32con.MF_SEPARATOR, 0, "")
     
-    win32gui.AppendMenu(menu, win32con.MF_STRING, 1001, "查看报表")
-    win32gui.AppendMenu(menu, win32con.MF_STRING, 1003, "程序目录")
+    win32gui.AppendMenu(menu, win32con.MF_STRING, 1001, "查看近期记录")
+    win32gui.AppendMenu(menu, win32con.MF_STRING, 1003, "打开程序目录")
     win32gui.AppendMenu(menu, win32con.MF_SEPARATOR, 0, "")
     win32gui.AppendMenu(menu, win32con.MF_STRING, 1004, "退出")
 

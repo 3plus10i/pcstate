@@ -273,6 +273,18 @@
 
             // 创建时间标签
             this.createTimeLabels();
+            
+            // 创建 tooltip
+            this.tooltip = document.createElement('div');
+            this.tooltip.className = 'wall-tooltip';
+            this.tooltip.style.cssText = 'position:absolute;display:none;background:#333;color:#fff;padding:4px 8px;border-radius:4px;font-size:12px;pointer-events:none;white-space:nowrap;z-index:100;';
+            this.canvas.parentElement.style.position = 'relative';
+            this.canvas.parentElement.appendChild(this.tooltip);
+            
+            // 绑定鼠标事件
+            // this.canvas.style.cursor = 'pointer';
+            this.canvas.addEventListener('mousemove', (e) => this.onMouseMove(e));
+            this.canvas.addEventListener('mouseleave', () => this.tooltip.style.display = 'none');
         }
 
         // 获取指定列的左边缘x坐标
@@ -317,6 +329,40 @@
                 label.style.top = this.getRowCenter(row) + 'px';
                 container.appendChild(label);
             });
+        }
+        
+        onMouseMove(e) {
+            const rect = this.canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            let col = -1, row = -1;
+            for (let c = 0; c < this.cols; c++) {
+                if (x >= this.cellX[c] && x < this.cellX[c] + this.size) {
+                    col = c;
+                    break;
+                }
+            }
+            for (let r = 0; r < this.rows; r++) {
+                if (y >= this.cellY[r] && y < this.cellY[r] + this.size) {
+                    row = r;
+                    break;
+                }
+            }
+            
+            if (col >= 0 && row >= 0) {
+                const startHour = row;
+                const startMin = col * 5;
+                const endMin = startMin + 5;
+                const timeStr = `${String(startHour).padStart(2,'0')}:${String(startMin).padStart(2,'0')}-${String(startHour).padStart(2,'0')}:${String(endMin).padStart(2,'0')}`;
+                
+                this.tooltip.textContent = timeStr;
+                this.tooltip.style.display = 'block';
+                this.tooltip.style.left = (x + 10) + 'px';
+                this.tooltip.style.top = (y - 25) + 'px';
+            } else {
+                this.tooltip.style.display = 'none';
+            }
         }
         
         render(slots) {
