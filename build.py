@@ -6,6 +6,49 @@ import sys
 import os
 import shutil
 
+# 导入版本信息
+from version import VERSION, VERSION_PARTS, COMPANY_NAME, FILE_DESCRIPTION, PRODUCT_NAME, COPYRIGHT
+
+
+def generate_version_info():
+    """根据 version.py 生成 Windows 版本信息文件"""
+    version_content = f'''VSVersionInfo(
+  ffi=FixedFileInfo(
+    filevers={VERSION_PARTS},
+    prodvers={VERSION_PARTS},
+    mask=0x3f,
+    flags=0x0,
+    OS=0x40004,
+    fileType=0x1,
+    subtype=0x0,
+    date=(0, 0)
+  ),
+  kids=[
+    StringFileInfo(
+      [
+      StringTable(
+        '040904B0',
+        [StringStruct('CompanyName', '{COMPANY_NAME}'),
+        StringStruct('FileDescription', '{FILE_DESCRIPTION}'),
+        StringStruct('FileVersion', '{VERSION}'),
+        StringStruct('InternalName', 'PCStateMonitor'),
+        StringStruct('LegalCopyright', '{COPYRIGHT}'),
+        StringStruct('OriginalFilename', 'PCStateMonitor.exe'),
+        StringStruct('ProductName', '{PRODUCT_NAME}'),
+        StringStruct('ProductVersion', '{VERSION}')])
+      ]),
+    VarFileInfo([VarStruct('Translation', [1033, 1200])])
+  ]
+)
+'''
+    # 确保 build 目录存在
+    os.makedirs('build', exist_ok=True)
+    version_file = os.path.join('build', 'version_info.txt')
+    with open(version_file, 'w', encoding='utf-8') as f:
+        f.write(version_content)
+    print(f"已生成版本信息文件: {VERSION}")
+    return version_file
+
 
 def clean_build():
     """清理之前的构建文件"""
@@ -24,6 +67,9 @@ def clean_build():
 
 def build():
     """执行打包"""
+    # 生成版本信息文件
+    version_file = generate_version_info()
+    
     # 确保依赖已安装
     try:
         import PyInstaller
@@ -48,6 +94,8 @@ def build():
         '--hidden-import=win32com.client',
         # 图标
         '--icon=public/icon_active.ico',
+        # 版本信息
+        f'--version-file={version_file}',
         # 主程序
         'main.py'
     ]
@@ -75,12 +123,12 @@ def create_release():
     # 复制 exe
     shutil.copy('dist/PCStateMonitor.exe', release_dir)
     
-    # 创建必要的目录结构
-    os.makedirs(os.path.join(release_dir, 'logs'))
-    os.makedirs(os.path.join(release_dir, 'temp'))
+    # # 创建必要的目录结构
+    # os.makedirs(os.path.join(release_dir, 'logs'))
+    # os.makedirs(os.path.join(release_dir, 'temp'))
     
-    # 复制 public 目录（虽然打包进exe了，但保留一份以防万一）
-    shutil.copytree('public', os.path.join(release_dir, 'public'))
+    # # 复制 public 目录（虽然打包进exe了，但保留一份以防万一）
+    # shutil.copytree('public', os.path.join(release_dir, 'public'))
     
     # 复制 README
     if os.path.exists('README.md'):

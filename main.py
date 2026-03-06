@@ -1,10 +1,8 @@
 """
-PC状态监控客户端 - 主入口
+PCState - PC活跃状态记录器
 系统托盘运行，定时检测PC活跃状态
-使用 Windows API 实现托盘，无需 PIL
+使用 Windows API 实现托盘
 """
-
-VERSION = "1.1"
 
 import threading
 import time
@@ -23,6 +21,7 @@ import win32con
 import idle_detector
 import logger
 import startup_manager
+from version import VERSION
 
 
 # 全局状态
@@ -86,8 +85,6 @@ def wnd_proc(hwnd, msg, wparam, lparam):
             open_project_homepage()
         elif cmd == 1001:
             open_viewer()
-        elif cmd == 1002:
-            open_log_file()
         elif cmd == 1003:
             open_install_dir()
         elif cmd == 1004:
@@ -156,7 +153,7 @@ def add_tray_icon(hwnd, status='idle'):
         flags,          # 标志
         win32con.WM_USER + 1,  # 回调消息
         hicon,          # 图标句柄
-        "PC状态监控"     # 提示文本
+        "PCState - PC活跃状态记录器"     # 提示文本
     )
 
     win32gui.Shell_NotifyIcon(win32gui.NIM_ADD, nid)
@@ -176,7 +173,7 @@ def update_tray_icon(status):
         flags,
         0,
         hicon,
-        f"PC监控 - {pc_name} ({'活跃' if status == 'active' else '闲置'})"
+        f"PCState - {pc_name} ({'活跃' if status == 'active' else '闲置'})"
     )
 
     win32gui.Shell_NotifyIcon(win32gui.NIM_MODIFY, nid)
@@ -204,7 +201,7 @@ def toggle_startup():
 def show_menu(hwnd):
     """显示托盘菜单"""
     menu = win32gui.CreatePopupMenu()
-    win32gui.AppendMenu(menu, win32con.MF_STRING, 1000, "PCState状态监控 v{}".format(VERSION))
+    win32gui.AppendMenu(menu, win32con.MF_STRING, 1000, "PCState v{}".format(VERSION))
     win32gui.AppendMenu(menu, win32con.MF_SEPARATOR, 0, "")
     
     # 开机启动选项
@@ -214,7 +211,6 @@ def show_menu(hwnd):
     win32gui.AppendMenu(menu, win32con.MF_SEPARATOR, 0, "")
     
     win32gui.AppendMenu(menu, win32con.MF_STRING, 1001, "查看报表")
-    win32gui.AppendMenu(menu, win32con.MF_STRING, 1002, "查看日志")
     win32gui.AppendMenu(menu, win32con.MF_STRING, 1003, "程序目录")
     win32gui.AppendMenu(menu, win32con.MF_SEPARATOR, 0, "")
     win32gui.AppendMenu(menu, win32con.MF_STRING, 1004, "退出")
@@ -231,19 +227,11 @@ def show_menu(hwnd):
     win32gui.PostMessage(hwnd, win32con.WM_NULL, 0, 0)
 
 
-def open_log_file():
-    """用系统默认程序打开日志文件"""
-    log_path = logger.get_log_path()
-    if os.path.exists(log_path):
-        os.startfile(log_path)
-    else:
-        print("日志文件尚未创建")
-
-
 def generate_data_js():
-    """生成数据JS文件（内嵌gen_data.py功能）"""
+    """生成数据JS文件"""
     import json
     from datetime import date, timedelta
+    from version import VERSION
 
     def get_recent_dates(days=14):
         dates = []
@@ -295,6 +283,7 @@ def generate_data_js():
 
     js_content = f"const LOG_DATA = {json.dumps(log_data, ensure_ascii=False)};\n"
     js_content += f"const DATES = {json.dumps(dates, ensure_ascii=False)};\n"
+    js_content += f"const APP_VERSION = '{VERSION}';\n"
 
     with open(output_file, 'w', encoding='utf-8') as f:
         f.write(js_content)
@@ -378,8 +367,7 @@ def main():
     global hwnd
 
     pc_name = platform.node()
-    print(f"PC监控启动: {pc_name}")
-    print(f"检测间隔: 60 秒（固定）")
+    print(f"PCState启动: {pc_name}")
 
     # 创建隐藏窗口
     hwnd = create_window()

@@ -7,3 +7,4 @@ release/
 build/
 dist/
 *.spec
+dev.md

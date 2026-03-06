@@ -1,55 +1,42 @@
-# PCState
+# PCState - PC活跃状态记录器
 
-一个简单的Win桌面端小工具，挂在托盘里记录你每天用电脑的时间。
+一个简单的小工具，挂在托盘里记录你每天用电脑的时间。
 
-![screenshot](screenshot-v1.1.png)
+![screenshot](screenshot.png)
 
-## 功能
+## 下载使用
 
-- 后台静默运行，每分钟检查一次键鼠操作，有操作则记录为活跃状态
-- 右键点托盘图标，使用看时间报表等功能
+从 [Releases](https://github.com/3plus10i/pcstate/releases) 下载。
 
-## 安装和运行
+> 运行过程中会产生数据文件夹logs/ 和 temp/， 为防止意外情况，建议将本程序放在一个专用的干净文件夹下运行。
 
-方法1 推荐使用exe文件，直接双击运行即可。
+程序会在托盘显示图标：
+- 🟢 绿色 = 活跃（最近有键鼠操作）
+- ⚪ 灰色 = 闲置
 
-方法2 使用源码运行，需要Python环境：
+右键图标可以：
+- 查看报表 - 打开网页查看最近14天的活跃情况
+- 开机启动 - 设置是否随 Windows 启动
+- 查看程序目录
+
+> 仅支持Windows。需要保持程序运行才能记录，建议开启开机启动功能。
+
+## 自己打包
+
+有 Python 环境的话也可以自己运行：
+
 ```bash
-pip install pywin32
+pip install -r requirements.txt
 python main.py
 ```
 
-启动后会在右下角托盘，绿点表示监测到刚才有操作，灰点是闲置。
-
-## 看报表
-
-右键托盘 → 查看报表，会打开一个网页，显示最近14天的活跃情况。
-
-格子颜色越深，表示那5分钟里你越忙。
-
-## 打包成exe
+或打包成 exe （基于 PyInstaller）：
 
 ```bash
 python build.py --release
 ```
 
-在 `release/` 目录拿到单文件 `PCStateMonitor.exe`，可以不需要Python环境运行。
-
-## 文件说明
-
-```
-├── main.py          # 主程序
-├── public/          # 图标和报表模板
-├── logs/            # 每天的日志
-└── temp/            # 生成的报表页面
-```
-
-日志一天一个文件，格式是 `HHMM`。
-
-## 项目主页
-
-https://github.com/3plus10i/pcstate
+输出在 `release/` 目录。
 
 ---
 
-Windows only。需要一直开着才能记录，关了就停了。

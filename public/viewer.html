@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>PC状态</title>
+    <title>PCState</title>
     <style>
         * {
             margin: 0;
@@ -192,7 +192,7 @@
 <body>
     <div class="container">
         <div class="card">
-            <h1>PC活动状态监控</h1>
+            <h1>PCState - PC活跃状态记录器</h1>
             
             <div class="wall-wrapper">
                 <div class="overview">
@@ -216,7 +216,7 @@
     </div>
 
     <div class="footer">
-        PCState 状态监控 · <a href="https://github.com/3plus10i/pcstate" target="_blank" style="color: #0084ffb0; text-decoration: none;">项目主页 3plus10i/pcstate</a>
+        PCState <span id="app-version">v1.0.0</span> · PC活跃状态记录器 · <a href="https://github.com/3plus10i/pcstate" target="_blank" style="color: #0084ffb0; text-decoration: none;">项目主页</a>
         <br>
         数据页生成于 <span id="generated-date"></span>
     </div>
@@ -353,8 +353,11 @@
 
     const wall = new StatusWall('wallCanvas');
 
-    // 设置页脚生成日期
-    function setGeneratedDate() {
+    // 设置页脚信息（版本号 + 生成日期）
+    function setFooterInfo() {
+        const version = typeof APP_VERSION !== 'undefined' ? APP_VERSION : '1.0.0';
+        document.getElementById('app-version').textContent = 'v' + version;
+        
         const now = new Date();
         const year = now.getFullYear();
         const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -419,7 +422,7 @@
             `<span class="info-date">${dateStr}</span>活跃片数：${activeSlots}/288，共${totalMinutes}分钟(${hours}时)`;
     }
 
-    setGeneratedDate();
+    setFooterInfo();
     main();
     </script>
 </body>
