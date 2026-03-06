@@ -129,16 +129,10 @@ def add_tray_icon(hwnd, status='idle'):
     hicon_active = load_icon(icon_active_path)
     if hicon_active is None:
         hicon_active = win32gui.LoadIcon(0, win32con.IDI_APPLICATION)
-        print("使用系统默认活跃图标")
-    else:
-        print(f"成功加载活跃图标: {icon_active_path}")
 
     hicon_idle = load_icon(icon_idle_path)
     if hicon_idle is None:
         hicon_idle = win32gui.LoadIcon(0, win32con.IDI_APPLICATION)
-        print("使用系统默认闲置图标")
-    else:
-        print(f"成功加载闲置图标: {icon_idle_path}")
 
     hwnd_active = hicon_active
     hwnd_idle = hicon_idle

@@ -208,7 +208,7 @@
                 </div>
                 <div class="legend">
                     <div class="legend-title">活跃度说明</div>
-                    <div>每个小格表示5分钟，颜色越深表示这片时间中活跃越多。</div>
+                    <div>每个小格表示5分钟，格子颜色越深表示越繁忙。</div>
                 </div>
             </div>
 
@@ -414,6 +414,15 @@
             `${year}-${month}-${day} ${hours}:${minutes}`;
     }
 
+    function formatDuration(minutes) {
+        if (minutes >= 60) {
+            const h = Math.floor(minutes / 60);
+            const m = minutes % 60;
+            return `${h}h${m}m`;
+        }
+        return `${minutes}min`;
+    }
+    
     function formatDate(dateStr) {
         const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
         const d = new Date(dateStr);
@@ -433,12 +442,12 @@
         // 生成总览列表（可点击）
         for (let i = 0; i < DATES.length; i++) {
             const slots = LOG_DATA[i] || [];
-            const totalMinutes = slots.reduce((s, v) => s + v, 0);
-            const hours = (totalMinutes / 60).toFixed(1);
+            const activeSlots = slots.filter(v => v > 0).length;
+            const activeMinutes = activeSlots * 5;
             
             const item = document.createElement('div');
             item.className = 'overview-item';
-            item.innerHTML = `<span class="date">${formatDate(DATES[i])}</span> <span class="duration">${hours}时</span>`;
+            item.innerHTML = `<span class="date">${formatDate(DATES[i])}</span> <span class="duration">${formatDuration(activeMinutes)}</span>`;
             item.onclick = () => showDay(i, item);
             overviewList.appendChild(item);
         }
@@ -461,11 +470,16 @@
         wall.render(slots);
 
         const activeSlots = slots.filter(v => v > 0).length;
-        const totalMinutes = slots.reduce((s, v) => s + v, 0);
-        const hours = (totalMinutes / 60).toFixed(1);
-
-        document.getElementById('info').innerHTML =
-            `<span class="info-date">${dateStr}</span>活跃片数：${activeSlots}/288，共${totalMinutes}分钟(${hours}时)`;
+        const activeMinutes = activeSlots * 5;
+        const activeHours = Math.floor(activeMinutes / 60);
+        const activeMins = activeMinutes % 60;
+        if (activeHours === 0) {
+            document.getElementById('info').innerHTML =
+                `<span class="info-date">${dateStr}</span>活跃时间${activeMins}分钟，已点亮${activeSlots}个格子`;
+        } else {
+            document.getElementById('info').innerHTML =
+                `<span class="info-date">${dateStr}</span>活跃时间${activeHours}小时${activeMins}分钟，已点亮${activeSlots}个格子`;
+        }
     }
 
     setFooterInfo();
