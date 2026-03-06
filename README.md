@@ -2,7 +2,7 @@
 
 一个简单的小工具，挂在托盘里记录你每天用电脑的时间。
 
-![screenshot](screenshot.png)
+![screenshot](screenshot-v1.1.png)
 
 ## 下载使用
 
