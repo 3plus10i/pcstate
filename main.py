@@ -345,7 +345,9 @@ def check_and_report():
         if is_active:
             check_time = now - timedelta(minutes=1)
             record = f"{check_time.hour:02d}{check_time.minute:02d}"
-            logger.write_log(record)
+            # 根据记录的时间获取对应的日志文件路径
+            log_path = logger.get_log_path(check_time.date())
+            logger.write_log(record, log_path)
 
         # 状态变化时更新托盘图标
         if new_status != current_status:

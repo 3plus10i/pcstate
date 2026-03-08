@@ -1,12 +1,11 @@
 """
-日志写入模块 - 每天一个日志文件，格式：HHMM（时分）
+日志模块 - 提供日志文件路径生成和读写功能
 """
 import os
 import sys
 from datetime import date
 
 
-# 获取日志目录路径
 def get_logs_dir() -> str:
     """获取日志目录路径"""
     if getattr(sys, 'frozen', False):
@@ -19,23 +18,31 @@ def get_logs_dir() -> str:
     return logs_dir
 
 
-# 获取当天日志文件路径
-def get_log_path() -> str:
-    """获取当天日志文件路径"""
-    logs_dir = get_logs_dir()
-    today = date.today().strftime('%Y-%m-%d')
-    return os.path.join(logs_dir, f'pcstate-{today}.log')
-
-
-def write_log(record: str) -> None:
+def get_log_path(target_date=None) -> str:
     """
-    写入状态日志
-    
+    获取日志文件路径
+
+    Args:
+        target_date: 指定日期的date对象，如果为None则使用当天日期
+
+    Returns:
+        日志文件的完整路径
+    """
+    logs_dir = get_logs_dir()
+    if target_date is None:
+        target_date = date.today()
+    date_str = target_date.strftime('%Y-%m-%d')
+    return os.path.join(logs_dir, f'pcstate-{date_str}.log')
+
+
+def write_log(record: str, log_path: str) -> None:
+    """
+    写入日志记录到指定文件
+
     Args:
         record: 时间记录，格式 HHMM（例如：1621 表示 16:21）
+        log_path: 日志文件完整路径
     """
-    log_path = get_log_path()
-    
     with open(log_path, 'a', encoding='utf-8') as f:
         f.write(record + '\n')
 
