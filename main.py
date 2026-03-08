@@ -226,6 +226,7 @@ def generate_data_js():
     import json
     from datetime import date, timedelta
     from version import VERSION
+    from config import STORAGE_MODE
 
     def get_recent_dates(days=14):
         dates = []
@@ -235,11 +236,11 @@ def generate_data_js():
             dates.append(d.strftime('%Y-%m-%d'))
         return dates
 
-    def parse_log_file(filepath):
-        slots = [0] * 288
+    def _parse_text_file(filepath, slots):
+        """文本方案解析"""
         if not os.path.exists(filepath):
             return slots
-
+            
         minute_set = set()
         try:
             with open(filepath, 'r', encoding='utf-8') as f:
@@ -260,6 +261,38 @@ def generate_data_js():
             except ValueError:
                 continue
         return slots
+    
+    def _parse_tdr_file(filepath, slots, target_date):
+        """TDR方案解析指定日期数据"""
+        from tdr import TDR
+        from datetime import datetime
+        
+        if not os.path.exists(filepath):
+            return slots
+        
+        try:
+            with TDR(filepath) as tdr:
+                # 遍历指定日期的每一分钟
+                for minute in range(1440):
+                    hour = minute // 60
+                    min_part = minute % 60
+                    
+                    # 计算时间戳
+                    timestamp = int(datetime.combine(
+                        target_date,
+                        datetime.min.time().replace(hour=hour, minute=min_part)
+                    ).timestamp() * 1000)
+                    
+                    # 读取数据
+                    value = tdr.read(timestamp)
+                    if value == 1:
+                        slot = hour * 12 + min_part // 5
+                        if 0 <= slot < 288:
+                            slots[slot] = min(slots[slot] + 1, 5)
+        except Exception:
+            return slots
+        
+        return slots
 
     script_dir = get_script_dir()
     log_dir = os.path.join(script_dir, 'logs')
@@ -270,10 +303,19 @@ def generate_data_js():
     log_data = []
     dates = get_recent_dates(14)
 
-    for date_str in dates:
-        filename = os.path.join(log_dir, f'pcstate-{date_str}.log')
-        slots = parse_log_file(filename)
-        log_data.append(slots)
+    if STORAGE_MODE == 'tdr':
+        # TDR方案: 单文件存储14天
+        tdr_path = os.path.join(log_dir, 'pcstate.tdr')
+        for date_str in dates:
+            slots = [0] * 288
+            target_date = date.fromisoformat(date_str)
+            log_data.append(_parse_tdr_file(tdr_path, slots, target_date))
+    else:
+        # 文本方案: 每天一个文件
+        for date_str in dates:
+            filename = os.path.join(log_dir, f'pcstate-{date_str}.log')
+            slots = [0] * 288
+            log_data.append(_parse_text_file(filename, slots))
 
     js_content = f"const LOG_DATA = {json.dumps(log_data, ensure_ascii=False)};\n"
     js_content += f"const DATES = {json.dumps(dates, ensure_ascii=False)};\n"
