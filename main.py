@@ -294,6 +294,8 @@ def open_viewer():
     temp_dir = os.path.join(script_dir, 'temp')
     viewer_template = get_resource_path(os.path.join('public', 'viewer.html'))
     viewer_path = os.path.join(temp_dir, 'viewer.html')
+    chart_js_src = get_resource_path(os.path.join('public', 'StateBlockChart.js'))
+    chart_js_dst = os.path.join(temp_dir, 'StateBlockChart.js')
 
     # 确保temp目录存在
     os.makedirs(temp_dir, exist_ok=True)
@@ -311,6 +313,14 @@ def open_viewer():
         print(f"已复制报表模板到: {viewer_path}")
     else:
         print(f"报表模板不存在: {viewer_template}")
+        return
+
+    # 复制StateBlockChart.js到temp目录
+    if os.path.exists(chart_js_src):
+        shutil.copy2(chart_js_src, chart_js_dst)
+        print(f"已复制图表组件到: {chart_js_dst}")
+    else:
+        print(f"图表组件不存在: {chart_js_src}")
         return
 
     # 打开temp目录下的viewer.html
