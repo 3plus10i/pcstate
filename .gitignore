@@ -8,3 +8,5 @@ build/
 dist/
 *.spec
 dev.md
+frontend/node_modules/
+viewer/
