@@ -18,7 +18,7 @@ import win32con
 
 from src import idle_detector, logger, startup_manager, config
 from version import VERSION
-from src.viewer import export_data, get_viewer_files
+from src.exporter import export_data, get_viewer_files
 
 
 # 全局状态
