@@ -203,10 +203,14 @@ def check_and_report():
         is_active = idle_time < 60
         new_status = 'active' if is_active else 'idle'
 
-        if is_active:
-            check_time = now - timedelta(minutes=1)
-            record = f"{check_time.hour:02d}{check_time.minute:02d}"
-            logger.write_log(record)
+        # 获取活动窗口信息
+        window_title, process_name = idle_detector.get_active_window_info()
+
+        # 记录每分钟的数据
+        check_time = now - timedelta(minutes=1)
+        from src.sqlite import SQLiteStorage
+        backend = SQLiteStorage()
+        backend.write(check_time.hour, check_time.minute, is_active, window_title, process_name)
 
         if new_status != current_status:
             current_status = new_status
