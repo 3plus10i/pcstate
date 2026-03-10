@@ -16,8 +16,8 @@ import win32api
 import win32gui
 import win32con
 
-from src import idle_detector, logger, startup_manager
-from src.version import VERSION
+from src import idle_detector, logger, startup_manager, config
+from version import VERSION
 from src.viewer import export_data, get_viewer_files
 
 
@@ -75,6 +75,10 @@ def wnd_proc(hwnd, msg, wparam, lparam):
             win32gui.DestroyWindow(hwnd)
         elif cmd == 1005:
             toggle_startup()
+        elif cmd == 1010:  # 午夜0时
+            config.set_day_start_hour(0)
+        elif cmd == 1011:  # 凌晨4时
+            config.set_day_start_hour(4)
 
     elif msg == win32con.WM_DESTROY:
         running = False
@@ -144,8 +148,22 @@ def show_menu(hwnd):
     
     startup_text = "开机启动: 已启用" if startup_manager.is_startup_enabled() else "开机启动: 未启用"
     win32gui.AppendMenu(menu, win32con.MF_STRING, 1005, startup_text)
+    
+    # 一天起始时间子菜单
+    submenu = win32gui.CreatePopupMenu()
+    day_start = config.get_day_start_hour()
+    
+    midnight_check = win32con.MF_CHECKED if day_start == 0 else win32con.MF_STRING
+    dawn_check = win32con.MF_CHECKED if day_start == 4 else win32con.MF_STRING
+    
+    win32gui.AppendMenu(submenu, midnight_check, 1010, "午夜0时")
+    win32gui.AppendMenu(submenu, dawn_check, 1011, "凌晨4时")
+    
+    # 将子菜单附加到主菜单
+    win32gui.AppendMenu(menu, win32con.MF_POPUP, submenu, "一天起始时间")
+    
     win32gui.AppendMenu(menu, win32con.MF_SEPARATOR, 0, "")
-    win32gui.AppendMenu(menu, win32con.MF_STRING, 1001, "查看近期记录")
+    win32gui.AppendMenu(menu, win32con.MF_STRING, 1001, "查看报表")
     win32gui.AppendMenu(menu, win32con.MF_STRING, 1003, "打开程序目录")
     win32gui.AppendMenu(menu, win32con.MF_SEPARATOR, 0, "")
     win32gui.AppendMenu(menu, win32con.MF_STRING, 1004, "退出")

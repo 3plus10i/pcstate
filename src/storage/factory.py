@@ -13,7 +13,7 @@ def get_backend():
     Returns:
         StorageBackend 实例
     """
-    from src.version import STORAGE_MODE
+    from version import STORAGE_MODE
     
     if STORAGE_MODE not in _backends:
         if STORAGE_MODE == 'text':

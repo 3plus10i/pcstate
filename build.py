@@ -6,7 +6,7 @@ import sys
 import os
 import shutil
 
-from src.version import VERSION, VERSION_PARTS, COMPANY_NAME, FILE_DESCRIPTION, PRODUCT_NAME, COPYRIGHT
+from version import VERSION, VERSION_PARTS, COMPANY_NAME, FILE_DESCRIPTION, PRODUCT_NAME, COPYRIGHT
 
 
 def generate_version_info():

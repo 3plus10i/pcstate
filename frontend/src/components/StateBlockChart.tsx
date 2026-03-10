@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 interface StateBlockChartProps {
   slots: number[]
   size?: number
+  dayStartHour?: number
 }
 
 const COLORS = ['#eee', '#cce5ff', '#99ccff', '#66b2ff', '#3399ff', '#007bff']
@@ -11,7 +12,7 @@ const COLS = 12
 const SIZE = 16
 const GAP = 1.5
 
-export function StateBlockChart({ slots, size = SIZE }: StateBlockChartProps) {
+export function StateBlockChart({ slots, size = SIZE, dayStartHour = 0 }: StateBlockChartProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [tooltip, setTooltip] = useState<{ show: boolean; text: string; x: number; y: number }>({
     show: false, text: '', x: 0, y: 0
@@ -63,9 +64,13 @@ export function StateBlockChart({ slots, size = SIZE }: StateBlockChartProps) {
     }
 
     if (col >= 0 && row >= 0) {
+      const actualHour = (row + dayStartHour) % 24
+      const isNextDay = row >= (24 - dayStartHour) && dayStartHour > 0
       const startMin = col * 5
       const endMin = startMin + 5
-      const timeStr = `${String(row).padStart(2, '0')}:${String(startMin).padStart(2, '0')}-${String(row).padStart(2, '0')}:${String(endMin).padStart(2, '0')}`
+      const timeStr = isNextDay 
+        ? `${String(actualHour).padStart(2, '0')}:${String(startMin).padStart(2, '0')}-${String(actualHour).padStart(2, '0')}:${String(endMin).padStart(2, '0')} (次日)`
+        : `${String(actualHour).padStart(2, '0')}:${String(startMin).padStart(2, '0')}-${String(actualHour).padStart(2, '0')}:${String(endMin).padStart(2, '0')}`
       setTooltip({ show: true, text: timeStr, x: x + 10, y: y - 25 })
     } else {
       setTooltip({ show: false, text: '', x: 0, y: 0 })

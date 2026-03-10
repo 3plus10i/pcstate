@@ -6,11 +6,12 @@
 pcstate/
 ├── main.py               # 程序入口
 ├── build.py              # 打包脚本（含版本同步）
+├── version.py            # 版本号 + 存储配置（单点修改）
 ├── requirements.txt      # Python依赖
 ├── src/                  # Python核心模块
 │   ├── __init__.py
 │   ├── main.py           # 托盘程序主循环
-│   ├── version.py        # 版本号 + 存储配置（单点修改）
+│   ├── version.py        # 版本号 + 存储配置（已移至根目录）
 │   ├── idle_detector.py  # 空闲检测（Windows API）
 │   ├── logger.py         # 存储层适配器
 │   ├── startup_manager.py # 开机启动管理
@@ -108,7 +109,7 @@ CREATE TABLE activity (
 )
 ```
 
-**TDR 配置** (在 `version.py`):
+**TDR 配置** (在根目录 `version.py`):
 ```python
 TDR_CONFIG = {
     'length': 20160,     # 14天分钟数 (14 * 1440)
@@ -120,7 +121,7 @@ TDR_CONFIG = {
 
 #### 2.3 配置切换
 
-在 `src/version.py` 修改:
+在根目录 `version.py` 修改:
 ```python
 STORAGE_MODE = 'sqlite'  # 'text' | 'tdr' | 'sqlite'
 ```
@@ -246,7 +247,7 @@ const COLORS = ['#eee', '#cce5ff', '#99ccff', '#66b2ff', '#3399ff', '#007bff']
 
 ### 单点修改
 
-**所有版本号在 `src/version.py` 统一管理**:
+**所有版本号在根目录 `version.py` 统一管理**:
 
 ```python
 VERSION = "1.4.0.0"          # 4段版本号
@@ -377,7 +378,7 @@ elif STORAGE_MODE == 'new_backend':
     _backends['new_backend'] = NewStorage()
 ```
 
-3. 配置 `version.py`:
+3. 配置根目录 `version.py`:
 ```python
 STORAGE_MODE = 'new_backend'
 ```
@@ -448,6 +449,6 @@ viewer_dir = join(sys._MEIPASS, 'viewer')
 
 1. **高内聚低耦合**: 存储层可插拔，模块职责单一
 2. **最小化实现**: 只实现必要功能，不过度设计
-3. **单点修改**: 版本号、存储配置在 `version.py` 统一管理
+3. **单点修改**: 版本号、存储配置在根目录 `version.py` 统一管理
 4. **适配器模式**: `logger.py` 隔离新旧接口
 5. **工厂模式**: `storage/factory.py` 动态创建存储后端

@@ -61,7 +61,7 @@ def get_logs_dir() -> str:
 def get_log_files() -> List[str]:
     """获取所有日志文件列表"""
     import os
-    from src.version import STORAGE_MODE
+    from version import STORAGE_MODE
     
     logs_dir = get_logs_dir()
     if not os.path.exists(logs_dir):
@@ -76,7 +76,7 @@ def get_log_files() -> List[str]:
 
 def read_recent_logs(lines: int = 20) -> str:
     """读取最近若干行日志（仅文本模式）"""
-    from src.version import STORAGE_MODE
+    from version import STORAGE_MODE
     
     if STORAGE_MODE != 'text':
         return "非文本模式不支持逐行读取"

@@ -15,7 +15,7 @@ class TDRStorage(StorageBackend):
     """TDR 二进制存储"""
     
     def __init__(self):
-        from src.version import TDR_CONFIG
+        from version import TDR_CONFIG
         self._config = TDR_CONFIG
         self._logs_dir = self._get_logs_dir()
     

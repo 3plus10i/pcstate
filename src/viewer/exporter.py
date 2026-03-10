@@ -9,8 +9,9 @@ import shutil
 from datetime import date, timedelta
 from typing import List, Tuple
 
-from src.version import VERSION
+from version import VERSION
 from src.storage import get_backend
+from src import config
 
 
 def get_script_dir() -> str:
@@ -46,6 +47,72 @@ def get_recent_dates(days: int = 14) -> List[str]:
     return dates
 
 
+def get_date_range_with_offset(target_date: date, start_hour: int) -> tuple:
+    """
+    根据一天起始时间获取实际的时间范围
+    
+    Args:
+        target_date: 目标日期
+        start_hour: 一天起始小时（0或4）
+    
+    Returns:
+        (开始日期, 开始小时, 结束日期, 结束小时)
+    
+    Examples:
+        target_date=2025-01-01, start_hour=0  -> (2025-01-01, 0, 2025-01-01, 23)
+        target_date=2025-01-01, start_hour=4  -> (2025-01-01, 4, 2025-01-02, 3)
+    """
+    if start_hour == 0:
+        return target_date, 0, target_date, 23
+    else:
+        start_date = target_date
+        end_date = target_date + timedelta(days=1)
+        return start_date, start_hour, end_date, start_hour - 1
+
+
+def get_slots_for_custom_day(target_date: date, start_hour: int) -> List[int]:
+    """
+    获取自定义起始时间的一天的槽位数据
+    
+    Args:
+        target_date: 目标日期
+        start_hour: 一天起始小时（0或4）
+    
+    Returns:
+        288个槽位的活跃计数
+    """
+    backend = get_backend()
+    
+    if start_hour == 0:
+        # 标准模式：直接获取当天数据
+        return backend.get_slots(target_date)
+    
+    # 自定义起始时间模式：需要组合两天的数据
+    # 例如 start_hour=4，需要从 target_date 4:00 到 target_date+1 3:59
+    slots = [0] * 288
+    
+    # 第一部分：target_date 的 start_hour 到 23:59
+    first_date_slots = backend.get_slots(target_date)
+    for hour in range(start_hour, 24):
+        for minute_slot in range(12):
+            src_idx = hour * 12 + minute_slot
+            dst_hour = hour - start_hour
+            dst_idx = dst_hour * 12 + minute_slot
+            slots[dst_idx] = first_date_slots[src_idx]
+    
+    # 第二部分：target_date+1 的 0:00 到 start_hour-1:59
+    next_date = target_date + timedelta(days=1)
+    next_date_slots = backend.get_slots(next_date)
+    for hour in range(0, start_hour):
+        for minute_slot in range(12):
+            src_idx = hour * 12 + minute_slot
+            dst_hour = 24 - start_hour + hour
+            dst_idx = dst_hour * 12 + minute_slot
+            slots[dst_idx] = next_date_slots[src_idx]
+    
+    return slots
+
+
 def export_data() -> Tuple[str, int]:
     """
     导出数据到 JS 文件
@@ -59,15 +126,24 @@ def export_data() -> Tuple[str, int]:
     log_data = []
     dates = get_recent_dates(14)
     backend = get_backend()
+    day_start_hour = config.get_day_start_hour()
 
     for date_str in dates:
         target_date = date.fromisoformat(date_str)
-        slots = backend.get_slots(target_date)
+        
+        if day_start_hour == 0:
+            # 标准模式
+            slots = backend.get_slots(target_date)
+        else:
+            # 自定义起始时间模式
+            slots = get_slots_for_custom_day(target_date, day_start_hour)
+        
         log_data.append(slots)
 
     js_content = f"const LOG_DATA = {json.dumps(log_data, ensure_ascii=False)};\n"
     js_content += f"const DATES = {json.dumps(dates, ensure_ascii=False)};\n"
     js_content += f"const APP_VERSION = '{VERSION}';\n"
+    js_content += f"const DAY_START_HOUR = {day_start_hour};\n"
 
     with open(output_file, 'w', encoding='utf-8') as f:
         f.write(js_content)

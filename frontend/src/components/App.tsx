@@ -6,12 +6,28 @@ declare global {
   const LOG_DATA: number[][]
   const DATES: string[]
   const APP_VERSION: string
+  const DAY_START_HOUR: number
 }
 
 function formatDate(dateStr: string): string {
   const weekDays = ['日', '一', '二', '三', '四', '五', '六']
-  const d = new Date(dateStr)
+  const d = new Date(dateStr + 'T00:00:00')
   return `${d.getMonth() + 1}/${d.getDate()}(${weekDays[d.getDay()]})`
+}
+
+function getDateInfo(dateStr: string): string {
+  const d = new Date(dateStr + 'T00:00:00')
+  
+  // 星期几
+  const weekDays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六']
+  const weekDay = weekDays[d.getDay()]
+  
+  // 第几周
+  const firstDay = new Date(d.getFullYear(), 0, 1)
+  const pastDays = Math.floor((d.getTime() - firstDay.getTime()) / (24 * 60 * 60 * 1000))
+  const weekNum = Math.ceil((pastDays + firstDay.getDay() + 1) / 7)
+  
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${weekDay} 第${weekNum}周`
 }
 
 function formatDuration(minutes: number): string {
@@ -34,6 +50,7 @@ export function App() {
   const activeMins = activeMinutes % 60
 
   const version = typeof APP_VERSION !== 'undefined' ? APP_VERSION : '1.0.0'
+  const dayStartHour = typeof DAY_START_HOUR !== 'undefined' ? DAY_START_HOUR : 0
   const now = new Date()
   const generatedDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
 
@@ -102,30 +119,23 @@ export function App() {
 
             {/* 右侧图表区域 */}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              {/* 信息栏 */}
+              {/* 图形区域标题 */}
               <div style={{
                 width: '100%',
-                fontSize: 14,
-                color: 'rgba(0,0,0,0.45)',
-                marginBottom: 20,
-                padding: '12px 16px',
-                background: '#fafafa',
-                borderRadius: 4,
-                lineHeight: 1.6
+                fontSize: 16,
+                fontWeight: 500,
+                color: 'rgba(0,0,0,0.85)',
+                marginBottom: 16,
+                padding: '8px 0',
+                borderBottom: '1px solid #e8e8e8'
               }}>
-                <span style={{ fontWeight: 500, color: 'rgba(0,0,0,0.65)', marginBottom: 8, display: 'block' }}>
-                  {dateStr}
-                </span>
-                {activeHours === 0
-                  ? `活跃时间${activeMins}分钟，已点亮${activeSlots}个小格`
-                  : `活跃时间${activeHours}小时${activeMins}分钟，已点亮${activeSlots}个小格`
-                }
+                {getDateInfo(dateStr)}
               </div>
 
-              {/* 时间标签 */}
-              <div style={{ position: 'relative' }}>
+              {/* 时间标签 + 格子图 */}
+              <div style={{ position: 'relative', marginLeft: 44, marginTop: 24 }}>
                 {/* 顶部时间标签 */}
-                {[0, 6, 12].map(col => {
+                {[0, 3, 6, 9].map(col => {
                   const cellX = calculateCellX(col)
                   return (
                     <div key={col} style={{
@@ -154,14 +164,14 @@ export function App() {
                     width: 32,
                     transform: 'translateY(-50%)'
                   }}>
-                    {row}时
+                    {formatHourLabel(row, dayStartHour)}
                   </div>
                 ))}
 
-                <StateBlockChart slots={slots} />
+                <StateBlockChart slots={slots} dayStartHour={dayStartHour} />
               </div>
 
-              {/* 图例 */}
+              {/* 格子图附属文字 */}
               <div style={{
                 marginTop: 20,
                 fontSize: 13,
@@ -171,7 +181,17 @@ export function App() {
                 borderRadius: 4,
                 lineHeight: 1.6
               }}>
-                每个小格表示5分钟，格子颜色越深表示越繁忙。
+                <p>
+                  {activeHours === 0
+                    ? `活跃时间${activeMins}分钟，已点亮${activeSlots}个小格`
+                    : `活跃时间${activeHours}小时${activeMins}分钟，已点亮${activeSlots}个小格`
+                  } · 每个小格表示5分钟，格子颜色越深表示越繁忙。
+                </p>
+                {dayStartHour > 0 && (
+                  <p>
+                    当前一天起始时间：凌晨{dayStartHour}时（带*号表示次日时间）
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -221,4 +241,10 @@ function calculateCellY(row: number): number {
     acc += SIZE
   }
   return positions[row] || 0
+}
+
+function formatHourLabel(row: number, dayStartHour: number): string {
+  const actualHour = (row + dayStartHour) % 24
+  const isNextDay = row >= (24 - dayStartHour) && dayStartHour > 0
+  return isNextDay ? `${actualHour}时*` : `${actualHour}时`
 }
