@@ -1,17 +1,15 @@
 """
-SQLite 存储后端（预留实现）
+SQLite 存储模块
 单文件数据库，支持查询扩展
 """
 
 import os
 import sys
-from datetime import date, datetime
+from datetime import date
 from typing import List, Optional
 
-from .base import StorageBackend
 
-
-class SQLiteStorage(StorageBackend):
+class SQLiteStorage:
     """SQLite 数据库存储"""
     
     def __init__(self):
@@ -22,11 +20,9 @@ class SQLiteStorage(StorageBackend):
         if getattr(sys, 'frozen', False):
             base_dir = os.path.dirname(sys.executable)
         else:
-            # src/storage -> src -> 项目根目录
-            base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        logs_dir = os.path.join(base_dir, 'logs')
-        os.makedirs(logs_dir, exist_ok=True)
-        return os.path.join(logs_dir, 'pcstate.db')
+            # src -> 项目根目录
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        return os.path.join(base_dir, 'pcstate.db')
     
     def _init_db(self):
         """初始化数据库表结构"""

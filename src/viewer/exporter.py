@@ -10,7 +10,7 @@ from datetime import date, timedelta
 from typing import List, Tuple
 
 from version import VERSION
-from src.storage import get_backend
+from src.sqlite import SQLiteStorage
 from src import config
 
 
@@ -81,7 +81,7 @@ def get_slots_for_custom_day(target_date: date, start_hour: int) -> List[int]:
     Returns:
         288个槽位的活跃计数
     """
-    backend = get_backend()
+    backend = SQLiteStorage()
     
     if start_hour == 0:
         # 标准模式：直接获取当天数据
@@ -125,7 +125,7 @@ def export_data() -> Tuple[str, int]:
 
     log_data = []
     dates = get_recent_dates(14)
-    backend = get_backend()
+    backend = SQLiteStorage()
     day_start_hour = config.get_day_start_hour()
 
     for date_str in dates:

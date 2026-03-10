@@ -11,17 +11,10 @@ pcstate/
 ├── src/                  # Python核心模块
 │   ├── __init__.py
 │   ├── main.py           # 托盘程序主循环
-│   ├── version.py        # 版本号 + 存储配置（已移至根目录）
 │   ├── idle_detector.py  # 空闲检测（Windows API）
-│   ├── logger.py         # 存储层适配器
+│   ├── logger.py         # 存储层接口
+│   ├── sqlite.py         # SQLite存储
 │   ├── startup_manager.py # 开机启动管理
-│   ├── storage/          # 存储层（可插拔架构）
-│   │   ├── __init__.py
-│   │   ├── base.py       # 抽象基类
-│   │   ├── factory.py    # 工厂模式
-│   │   ├── text.py       # 文本文件存储
-│   │   ├── sqlite.py     # SQLite存储
-│   │   └── tdr_backend.py # TDR二进制存储
 │   └── viewer/           # 数据导出
 │       ├── __init__.py
 │       └── exporter.py   # 导出data.js + 复制前端资源
@@ -35,14 +28,6 @@ pcstate/
 │       └── components/
 │           ├── App.tsx           # 主界面
 │           └── StateBlockChart.tsx # 热力图组件
-├── tdr/                  # TDR库（独立二进制存储引擎）
-│   ├── __init__.py
-│   ├── core.py           # L1业务层
-│   ├── header.py         # 文件头
-│   ├── ring.py           # L2解环层
-│   ├── bitops.py         # L3位操作
-│   ├── filler.py         # L4区间填充
-│   └── dev2.md           # 设计文档
 ├── viewer/               # 前端构建输出
 │   ├── index.html
 │   └── assets/
@@ -72,34 +57,9 @@ kernel32.GetTickCount64() - user32.GetLastInputInfo()
 
 ---
 
-### 2. 存储层 (`src/storage/`)
+### 2. 存储层 (`src/sqlite.py`)
 
-#### 2.1 架构设计
-
-**抽象接口** (`base.py`):
-```python
-class StorageBackend(ABC):
-    def get_log_path(target_date) -> str      # 获取存储路径
-    def write(hour, minute) -> None           # 写入活跃记录
-    def read_by_date(target_date) -> [str]    # 读取时间记录（HHMM格式）
-    def get_slots(target_date) -> [int]       # 获取槽位统计（288个）
-```
-
-**工厂模式** (`factory.py`):
-```python
-def get_backend() -> StorageBackend:
-    # 根据 STORAGE_MODE 返回对应实例（单例）
-```
-
-#### 2.2 后端实现
-
-| 后端 | 文件 | 特点 | 数据格式 |
-|-----|------|------|---------|
-| **text** | `text.py` | 每天1个.log文件，简单直观 | `logs/pcstate-YYYY-MM-DD.log` |
-| **sqlite** | `sqlite.py` | 单文件数据库，支持查询扩展 | `logs/pcstate.db` |
-| **tdr** | `tdr_backend.py` | 单文件14天，位压缩，环形覆盖 | `logs/pcstate.tdr` |
-
-**SQLite 表结构**:
+**表结构**:
 ```sql
 CREATE TABLE activity (
     date TEXT NOT NULL,
@@ -109,28 +69,22 @@ CREATE TABLE activity (
 )
 ```
 
-**TDR 配置** (在根目录 `version.py`):
+**核心接口**:
 ```python
-TDR_CONFIG = {
-    'length': 20160,     # 14天分钟数 (14 * 1440)
-    'step': 60000,       # 1分钟(毫秒)
-    'bit_width': 1,      # 二值数据
-    'remarks': '{"desc": "PCState", "vmap": {"0": "Idle", "1": "Active"}}'
-}
+def get_log_path(target_date) -> str      # 获取存储路径
+def write(hour, minute) -> None           # 写入活跃记录
+def read_by_date(target_date) -> [str]    # 读取时间记录（HHMM格式）
+def get_slots(target_date) -> [int]       # 获取槽位统计（288个）
 ```
 
-#### 2.3 配置切换
-
-在根目录 `version.py` 修改:
-```python
-STORAGE_MODE = 'sqlite'  # 'text' | 'tdr' | 'sqlite'
-```
+**特点**:
+- 单文件数据库：程序根目录下的 `pcstate.db`
+- 支持数据聚合：同一分钟多次活跃会累加 count
+- 使用 UPSERT 语法避免重复插入
 
 ---
 
-### 3. 日志适配器 (`src/logger.py`)
-
-**职责**: 提供向后兼容的接口，内部委托给存储后端
+### 3. 日志接口 (`src/logger.py`)
 
 **核心接口**:
 ```python
@@ -138,8 +92,6 @@ def write_log(record: str) -> None         # 写入 HHMM 记录
 def read_log_by_date(log_date: str) -> []  # 读取日期记录
 def get_slots_by_date(target_date) -> []   # 获取槽位统计
 ```
-
-**设计模式**: 适配器模式 + 延迟初始化单例
 
 ---
 
@@ -250,8 +202,8 @@ const COLORS = ['#eee', '#cce5ff', '#99ccff', '#66b2ff', '#3399ff', '#007bff']
 **所有版本号在根目录 `version.py` 统一管理**:
 
 ```python
-VERSION = "1.4.0.0"          # 4段版本号
-VERSION_PARTS = (1, 4, 0, 0)  # 用于Windows文件属性
+VERSION = "1.6.0.0"          # 4段版本号
+VERSION_PARTS = (1, 6, 0, 0)  # 用于Windows文件属性
 ```
 
 ### 自动同步
@@ -261,7 +213,7 @@ VERSION_PARTS = (1, 4, 0, 0)  # 用于Windows文件属性
 ```python
 def sync_frontend_version():
     """将 version.py 的版本号同步到 package.json"""
-    # 1.4.0.0 -> 1.4.0 (去掉第4段)
+    # 1.6.0.0 -> 1.6.0 (去掉第4段)
 ```
 
 **执行时机**: `python build.py` 构建前端前自动同步
@@ -297,7 +249,6 @@ pyinstaller \
     --windowed \             # 无控制台
     --add-data=viewer;viewer \   # 前端构建产物
     --add-data=src;src \         # Python模块
-    --add-data=tdr;tdr \         # TDR库
     --icon=public/icon_active.ico \
     --version-file=build/version_info.txt \
     src/main.py
@@ -318,10 +269,7 @@ python build.py --release    # 创建发布包
 
 ```
 程序目录/
-├── logs/                # 数据存储
-│   ├── pcstate.db      # SQLite模式
-│   ├── pcstate.tdr     # TDR模式
-│   └── pcstate-*.log   # Text模式（每天1个）
+├── pcstate.db          # SQLite 数据库
 ├── temp/                # 临时文件
 │   ├── data.js         # 导出的数据
 │   ├── index.html      # 前端页面
@@ -356,53 +304,7 @@ slots[slot] = min(slots[slot] + 1, 5)  # 上限5次
 
 ---
 
-### 2. 存储后端扩展
-
-**步骤**:
-
-1. 创建 `src/storage/new_backend.py`:
-```python
-from .base import StorageBackend
-
-class NewStorage(StorageBackend):
-    def get_log_path(self, target_date): ...
-    def write(self, hour, minute): ...
-    def read_by_date(self, target_date): ...
-    def get_slots(self, target_date): ...
-```
-
-2. 注册到 `factory.py`:
-```python
-elif STORAGE_MODE == 'new_backend':
-    from .new_backend import NewStorage
-    _backends['new_backend'] = NewStorage()
-```
-
-3. 配置根目录 `version.py`:
-```python
-STORAGE_MODE = 'new_backend'
-```
-
----
-
-### 3. TDR库架构
-
-**分层设计**:
-- **L1 业务层** (`core.py`): 时间戳管理，读写接口
-- **L2 解环层** (`ring.py`): 环形索引计算
-- **L3 位操作** (`bitops.py`): 位级读写
-- **L4 区间填充** (`filler.py`): 批量填充
-- **L5 文件头** (`header.py`): 元数据管理
-
-**核心特性**:
-- 固定大小: 创建时分配全部空间
-- 环形覆盖: 过期数据自动覆盖
-- 位压缩: 支持1/2/4/8/16/32/64/128位
-- 内存映射: O(1)访问速度
-
----
-
-### 4. 资源路径管理
+### 2. 资源路径管理
 
 **开发环境**:
 ```python
@@ -440,15 +342,10 @@ viewer_dir = join(sys._MEIPASS, 'viewer')
 - Vite 5
 - Canvas 2D
 
-**存储引擎**:
-- TDR (自研，二进制环形存储)
-
 ---
 
 ## 设计原则
 
-1. **高内聚低耦合**: 存储层可插拔，模块职责单一
+1. **高内聚低耦合**: 模块职责单一
 2. **最小化实现**: 只实现必要功能，不过度设计
 3. **单点修改**: 版本号、存储配置在根目录 `version.py` 统一管理
-4. **适配器模式**: `logger.py` 隔离新旧接口
-5. **工厂模式**: `storage/factory.py` 动态创建存储后端

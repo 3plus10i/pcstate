@@ -122,7 +122,6 @@ def build_exe():
         '--add-data=viewer;viewer',   # 前端构建产物
         '--add-data=public;public',   # 图标等静态资源
         '--add-data=src;src',
-        '--add-data=tdr;tdr',
         '--hidden-import=win32api',
         '--hidden-import=win32gui',
         '--hidden-import=win32con',
