@@ -155,6 +155,17 @@ def create_release():
 
     print(f"\n发布包: {os.path.abspath(release_dir)}/")
 
+    # 创建同名zip文件（包含版本号目录）
+    zip_path = f'release/pcstate-{VERSION}'
+    # 使用root_dir和base_dir参数，让zip里包含 pcstate-xxx/ 目录
+    shutil.make_archive(
+        zip_path,
+        'zip',
+        root_dir='release',
+        base_dir=f'pcstate-{VERSION}'
+    )
+    print(f"压缩包: {os.path.abspath(zip_path)}.zip")
+
 
 if __name__ == '__main__':
     import argparse
