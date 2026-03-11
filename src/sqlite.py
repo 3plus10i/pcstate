@@ -78,7 +78,7 @@ class SQLiteStorage:
         
         # 插入默认配置
         conn.execute('''
-            INSERT OR IGNORE INTO config (key, value) VALUES ('day_start_hour', '0')
+            INSERT OR IGNORE INTO config (key, value) VALUES ('day_start_hour', '4')
         ''')
 
         conn.commit()
