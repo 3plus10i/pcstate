@@ -107,7 +107,7 @@ export function HourlyBarChart({ slots, dayStartHour }: HourlyBarChartProps) {
       },
       series: [
         {
-          type: 'bar',
+          type: 'bar' as const,
           data: data,
           itemStyle: {
             color: '#1890ff',

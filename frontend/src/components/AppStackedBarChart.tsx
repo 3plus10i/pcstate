@@ -74,7 +74,7 @@ export function AppStackedBarChart({ hourlyAppData, dayStartHour }: AppStackedBa
       const data = hourlyAppData.map(hourData => (hourData && typeof hourData === 'object') ? (hourData[app] || 0) : 0)
       return {
         name: app,
-        type: 'bar',
+        type: 'bar' as const,
         stack: 'total',
         data: data
       }

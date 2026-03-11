@@ -117,7 +117,7 @@ export function AppPieChart({ appData }: AppPieChartProps) {
       },
       series: [
         {
-          type: 'pie',
+          type: 'pie' as const,
           radius: ['40%', '70%'],
           center: ['35%', '50%'],
           data: displayData,

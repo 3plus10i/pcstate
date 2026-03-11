@@ -74,7 +74,7 @@ export function WindowStackedBarChart({ hourlyWindowData, dayStartHour }: Window
       const data = hourlyWindowData.map(hourData => (hourData && typeof hourData === 'object') ? (hourData[window] || 0) : 0)
       return {
         name: window,
-        type: 'bar',
+        type: 'bar' as const,
         stack: 'total',
         data: data
       }
