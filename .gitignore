@@ -11,3 +11,4 @@ dev.md
 frontend/node_modules/
 viewer/
 *.db
+dev/

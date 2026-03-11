@@ -110,6 +110,10 @@ def export_data() -> Tuple[str, int]:
     output_file = os.path.join(temp_dir, 'data.js')
 
     record_data = []
+    app_data = []  # 新增应用时长数据
+    window_data = []  # 新增窗口时长数据
+    hourly_app_data = []  # 新增每小时应用时长数据
+    hourly_window_data = []  # 新增每小时窗口时长数据
     dates = get_recent_dates(14)
     backend = SQLiteStorage()
     day_start_hour = config.get_day_start_hour()
@@ -125,9 +129,29 @@ def export_data() -> Tuple[str, int]:
             slots = get_slots_for_custom_day(target_date, day_start_hour)
         
         record_data.append(slots)
+        
+        # 获取应用时长数据
+        app_durations = backend.get_app_durations(target_date)
+        app_data.append(app_durations)
+        
+        # 获取窗口时长数据
+        window_durations = backend.get_window_durations(target_date)
+        window_data.append(window_durations)
+        
+        # 获取每小时应用时长数据
+        hourly_app_durations = backend.get_hourly_app_durations(target_date)
+        hourly_app_data.append(hourly_app_durations)
+        
+        # 获取每小时窗口时长数据
+        hourly_window_durations = backend.get_hourly_window_durations(target_date)
+        hourly_window_data.append(hourly_window_durations)
 
     js_content = f"const RECORD_DATA = {json.dumps(record_data, ensure_ascii=False)};\n"
     js_content += f"const DATES = {json.dumps(dates, ensure_ascii=False)};\n"
+    js_content += f"const APP_DATA = {json.dumps(app_data, ensure_ascii=False)};\n"
+    js_content += f"const WINDOW_DATA = {json.dumps(window_data, ensure_ascii=False)};\n"
+    js_content += f"const HOURLY_APP_DATA = {json.dumps(hourly_app_data, ensure_ascii=False)};\n"
+    js_content += f"const HOURLY_WINDOW_DATA = {json.dumps(hourly_window_data, ensure_ascii=False)};\n"
     js_content += f"const APP_VERSION = '{VERSION}';\n"
     js_content += f"const DAY_START_HOUR = {day_start_hour};\n"
 

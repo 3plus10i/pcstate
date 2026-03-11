@@ -147,6 +147,132 @@ class SQLiteStorage:
 
         return slots
 
+    def get_app_durations(self, target_date: date) -> dict:
+        """获取应用时长数据
+        
+        Args:
+            target_date: 目标日期
+        
+        Returns:
+            字典，key为应用名，value为活跃分钟数
+        """
+        import sqlite3
+        date_str = target_date.isoformat()
+
+        app_durations = {}
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.execute(
+            'SELECT process_name, is_active FROM activity WHERE date = ?',
+            (date_str,)
+        )
+        for row in cursor:
+            process_name = row[0] or '其他'
+            is_active = row[1]
+            if is_active:
+                if process_name not in app_durations:
+                    app_durations[process_name] = 0
+                app_durations[process_name] += 5  # 每个记录代表5分钟
+        conn.close()
+
+        return app_durations
+
+    def get_window_durations(self, target_date: date) -> dict:
+        """获取窗口时长数据
+        
+        Args:
+            target_date: 目标日期
+        
+        Returns:
+            字典，key为窗口标题，value为活跃分钟数
+        """
+        import sqlite3
+        date_str = target_date.isoformat()
+
+        window_durations = {}
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.execute(
+            'SELECT window_title, is_active FROM activity WHERE date = ?',
+            (date_str,)
+        )
+        for row in cursor:
+            window_title = row[0] or '其他'
+            is_active = row[1]
+            if is_active:
+                if window_title not in window_durations:
+                    window_durations[window_title] = 0
+                window_durations[window_title] += 5  # 每个记录代表5分钟
+        conn.close()
+
+        return window_durations
+
+    def get_hourly_app_durations(self, target_date: date) -> List[dict]:
+        """获取每小时的应用时长数据
+        
+        Args:
+            target_date: 目标日期
+        
+        Returns:
+            24个元素的列表，每个元素是一个字典，key为应用名，value为该小时内的活跃分钟数
+        """
+        import sqlite3
+        date_str = target_date.isoformat()
+
+        hourly_data = [{} for _ in range(24)]
+        
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.execute(
+            'SELECT minute, process_name, is_active FROM activity WHERE date = ?',
+            (date_str,)
+        )
+        for row in cursor:
+            minute_of_day = row[0]
+            process_name = row[1] or '其他'
+            is_active = row[2]
+            
+            if is_active:
+                hour = minute_of_day // 60
+                if 0 <= hour < 24:
+                    if process_name not in hourly_data[hour]:
+                        hourly_data[hour][process_name] = 0
+                    hourly_data[hour][process_name] += 5  # 每个记录代表5分钟
+        
+        conn.close()
+        return hourly_data
+
+    def get_hourly_window_durations(self, target_date: date) -> List[dict]:
+        """获取每小时的窗口时长数据
+        
+        Args:
+            target_date: 目标日期
+        
+        Returns:
+            24个元素的列表，每个元素是一个字典，key为窗口标题，value为该小时内的活跃分钟数
+        """
+        import sqlite3
+        date_str = target_date.isoformat()
+
+        hourly_data = [{} for _ in range(24)]
+        
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.execute(
+            'SELECT minute, window_title, is_active FROM activity WHERE date = ?',
+            (date_str,)
+        )
+        for row in cursor:
+            minute_of_day = row[0]
+            window_title = row[1] or '其他'
+            is_active = row[2]
+            
+            if is_active:
+                hour = minute_of_day // 60
+                if 0 <= hour < 24:
+                    if window_title not in hourly_data[hour]:
+                        hourly_data[hour][window_title] = 0
+                    hourly_data[hour][window_title] += 5  # 每个记录代表5分钟
+        
+        conn.close()
+        return hourly_data
+
     def get_config(self, key: str, default: str = '') -> str:
         """获取配置值"""
         import sqlite3
