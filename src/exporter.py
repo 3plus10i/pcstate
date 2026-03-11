@@ -131,19 +131,19 @@ def export_data() -> Tuple[str, int]:
         record_data.append(slots)
         
         # 获取应用时长数据
-        app_durations = backend.get_app_durations(target_date)
+        app_durations = backend.get_app_durations(target_date, day_start_hour)
         app_data.append(app_durations)
         
         # 获取窗口时长数据
-        window_durations = backend.get_window_durations(target_date)
+        window_durations = backend.get_window_durations(target_date, day_start_hour)
         window_data.append(window_durations)
         
         # 获取每小时应用时长数据
-        hourly_app_durations = backend.get_hourly_app_durations(target_date)
+        hourly_app_durations = backend.get_hourly_app_durations(target_date, day_start_hour)
         hourly_app_data.append(hourly_app_durations)
         
         # 获取每小时窗口时长数据
-        hourly_window_durations = backend.get_hourly_window_durations(target_date)
+        hourly_window_durations = backend.get_hourly_window_durations(target_date, day_start_hour)
         hourly_window_data.append(hourly_window_durations)
 
     js_content = f"const RECORD_DATA = {json.dumps(record_data, ensure_ascii=False)};\n"

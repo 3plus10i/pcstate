@@ -7,9 +7,10 @@ interface HourlyDataItem {
 
 interface WindowStackedBarChartProps {
   hourlyWindowData: HourlyDataItem[]
+  dayStartHour: number
 }
 
-export function WindowStackedBarChart({ hourlyWindowData }: WindowStackedBarChartProps) {
+export function WindowStackedBarChart({ hourlyWindowData, dayStartHour }: WindowStackedBarChartProps) {
   const chartRef = useRef<HTMLDivElement>(null)
   const chartInstanceRef = useRef<echarts.ECharts | null>(null)
 
@@ -39,7 +40,10 @@ export function WindowStackedBarChart({ hourlyWindowData }: WindowStackedBarChar
       return
     }
 
-    const hours = Array.from({ length: 24 }, (_, i) => `${i}时`)
+    const hours = Array.from({ length: 24 }, (_, i) => {
+      const hour = (i + dayStartHour) % 24
+      return `${hour}时`
+    })
     
     const allWindows = new Set<string>()
     hourlyWindowData.forEach(hourData => {
@@ -86,6 +90,7 @@ export function WindowStackedBarChart({ hourlyWindowData }: WindowStackedBarChar
       title: {
         show: false
       },
+      animation: false,
       tooltip: {
         trigger: 'axis',
         axisPointer: {

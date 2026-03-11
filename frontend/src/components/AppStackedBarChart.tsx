@@ -7,9 +7,10 @@ interface HourlyDataItem {
 
 interface AppStackedBarChartProps {
   hourlyAppData: HourlyDataItem[]
+  dayStartHour: number
 }
 
-export function AppStackedBarChart({ hourlyAppData }: AppStackedBarChartProps) {
+export function AppStackedBarChart({ hourlyAppData, dayStartHour }: AppStackedBarChartProps) {
   const chartRef = useRef<HTMLDivElement>(null)
   const chartInstanceRef = useRef<echarts.ECharts | null>(null)
 
@@ -39,7 +40,10 @@ export function AppStackedBarChart({ hourlyAppData }: AppStackedBarChartProps) {
       return
     }
 
-    const hours = Array.from({ length: 24 }, (_, i) => `${i}时`)
+    const hours = Array.from({ length: 24 }, (_, i) => {
+      const hour = (i + dayStartHour) % 24
+      return `${hour}时`
+    })
     
     const allApps = new Set<string>()
     hourlyAppData.forEach(hourData => {
@@ -86,6 +90,7 @@ export function AppStackedBarChart({ hourlyAppData }: AppStackedBarChartProps) {
       title: {
         show: false
       },
+      animation: false,
       tooltip: {
         trigger: 'axis',
         axisPointer: {

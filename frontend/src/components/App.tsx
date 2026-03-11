@@ -443,7 +443,7 @@ export function App() {
                   )}
                   {chartType === 'hourly' && (
                     <div style={{ width: '100%', padding: '20px' }}>
-                      <HourlyBarChart slots={slots} />
+                      <HourlyBarChart slots={slots} dayStartHour={dayStartHour} />
                     </div>
                   )}
                   {chartType === 'appPie' && (
@@ -453,12 +453,12 @@ export function App() {
                   )}
                   {chartType === 'appStack' && (
                     <div style={{ width: '100%', padding: '20px' }}>
-                      <AppStackedBarChart hourlyAppData={hourlyAppData} />
+                      <AppStackedBarChart hourlyAppData={hourlyAppData} dayStartHour={dayStartHour} />
                     </div>
                   )}
                   {chartType === 'windowStack' && (
                     <div style={{ width: '100%', padding: '20px' }}>
-                      <WindowStackedBarChart hourlyWindowData={hourlyWindowData} />
+                      <WindowStackedBarChart hourlyWindowData={hourlyWindowData} dayStartHour={dayStartHour} />
                     </div>
                   )}
                 </>

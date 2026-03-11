@@ -3,9 +3,10 @@ import * as echarts from 'echarts'
 
 interface HourlyBarChartProps {
   slots: number[]
+  dayStartHour: number
 }
 
-export function HourlyBarChart({ slots }: HourlyBarChartProps) {
+export function HourlyBarChart({ slots, dayStartHour }: HourlyBarChartProps) {
   const chartRef = useRef<HTMLDivElement>(null)
   const chartInstanceRef = useRef<echarts.ECharts | null>(null)
 
@@ -18,11 +19,15 @@ export function HourlyBarChart({ slots }: HourlyBarChartProps) {
     const chart = chartInstanceRef.current
     chart.clear()
 
-    const hours = Array.from({ length: 24 }, (_, i) => `${i}时`)
+    const hours = Array.from({ length: 24 }, (_, i) => {
+      const hour = (i + dayStartHour) % 24
+      return `${hour}时`
+    })
     const data = Array.from({ length: 24 }, (_, i) => {
+      const hour = (i + dayStartHour) % 24
       let activeMinutes = 0
       for (let j = 0; j < 12; j++) {
-        const slotIndex = i * 12 + j
+        const slotIndex = hour * 12 + j
         if (slotIndex < slots.length && slots[slotIndex] > 0) {
           activeMinutes += 5
         }
@@ -31,6 +36,7 @@ export function HourlyBarChart({ slots }: HourlyBarChartProps) {
     })
 
     const option: echarts.EChartsOption = {
+      animation: false,
       grid: {
         left: 60,
         right: 20,
