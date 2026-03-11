@@ -1,7 +1,7 @@
 {
   "name": "pcstate-viewer",
   "private": true,
-  "version": "1.5.0",
+  "version": "1.6.2",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "echarts": "^6.0.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },

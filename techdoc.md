@@ -6,18 +6,18 @@
 pcstate/
 ├── main.py               # 程序入口
 ├── build.py              # 打包脚本（含版本同步）
-├── version.py            # 版本号 + 存储配置（单点修改）
+├── version.py            # 版本号
 ├── requirements.txt      # Python依赖
 ├── src/                  # Python核心模块
 │   ├── __init__.py
 │   ├── main.py           # 托盘程序主循环
 │   ├── idle_detector.py  # 空闲检测（Windows API）
-│   ├── logger.py         # 存储层接口
+│   ├── recorder.py       # 记录层接口
 │   ├── sqlite.py         # SQLite存储
+│   ├── config.py         # 配置管理
 │   ├── startup_manager.py # 开机启动管理
-│   └── viewer/           # 数据导出
-│       ├── __init__.py
-│       └── exporter.py   # 导出data.js + 复制前端资源
+│   ├── utils.py         # 工具函数
+│   └── exporter.py      # 数据导出
 ├── frontend/             # React + Vite 前端
 │   ├── index.html
 │   ├── package.json      # 版本号自动同步
@@ -27,10 +27,9 @@ pcstate/
 │       ├── index.css
 │       └── components/
 │           ├── App.tsx           # 主界面
-│           └── StateBlockChart.tsx # 热力图组件
-├── viewer/               # 前端构建输出
-│   ├── index.html
-│   └── assets/
+│           └── StateBlockChart.tsx # 马赛克图组件
+├── viewer/               # 前端构建输出(单文件输出)
+│   └── index.html
 └── public/               # 静态资源
     ├── icon_active.ico   # 活跃图标
     └── icon_idle.ico     # 闲置图标
@@ -61,57 +60,74 @@ kernel32.GetTickCount64() - user32.GetLastInputInfo()
 
 **表结构**:
 ```sql
+-- 活动记录表
 CREATE TABLE activity (
     date TEXT NOT NULL,
     minute INTEGER NOT NULL,  -- 一天中的第几分钟 (0-1439)
-    count INTEGER DEFAULT 1,  -- 活跃次数
+    is_active INTEGER NOT NULL,  -- 是否活跃 (0/1)
+    window_title TEXT,  -- 活动窗口标题
+    process_name TEXT,  -- 活动程序名
     PRIMARY KEY (date, minute)
+)
+
+-- 配置表
+CREATE TABLE config (
+    key TEXT NOT NULL,
+    value TEXT NOT NULL,
+    PRIMARY KEY (key)
 )
 ```
 
 **核心接口**:
 ```python
-def get_log_path(target_date) -> str      # 获取存储路径
-def write(hour, minute) -> None           # 写入活跃记录
+def get_record_path(target_date) -> str      # 获取存储路径
+def write(hour, minute, is_active, window_title, process_name) -> None  # 写入活跃记录
 def read_by_date(target_date) -> [str]    # 读取时间记录（HHMM格式）
 def get_slots(target_date) -> [int]       # 获取槽位统计（288个）
+def get_config(key, default) -> str        # 获取配置值
+def set_config(key, value) -> None        # 设置配置值
+def get_day_start_hour() -> int           # 获取一天起始小时
+def set_day_start_hour(hour) -> None      # 设置一天起始小时
 ```
 
 **特点**:
 - 单文件数据库：程序根目录下的 `pcstate.db`
-- 支持数据聚合：同一分钟多次活跃会累加 count
+- 配置统一存储：用户配置（如一天起始时间）存储在数据库中
+- 支持数据更新：同一分钟多次记录会更新为最新状态
 - 使用 UPSERT 语法避免重复插入
 
 ---
 
-### 3. 日志接口 (`src/logger.py`)
+### 3. 记录接口 (`src/recorder.py`)
 
 **核心接口**:
 ```python
-def write_log(record: str) -> None         # 写入 HHMM 记录
-def read_log_by_date(log_date: str) -> []  # 读取日期记录
+def write_record(record: str) -> None         # 写入 HHMM 记录
+def read_records_by_date(record_date: str) -> []  # 读取日期记录
 def get_slots_by_date(target_date) -> []   # 获取槽位统计
+def get_record_path(target_date) -> str    # 获取记录文件路径
+def get_record_files() -> []             # 获取记录文件列表
 ```
 
 ---
 
-### 4. 数据导出 (`src/viewer/exporter.py`)
+### 4. 数据导出 (`src/exporter.py`)
 
 **核心函数**:
 
 ```python
 def export_data() -> (str, int):
     """导出最近14天数据到 temp/data.js"""
-    # 生成 LOG_DATA, DATES, APP_VERSION 全局变量
+    # 生成 RECORD_DATA, DATES, APP_VERSION 全局变量
 
 def get_viewer_files() -> (str, str):
-    """复制 viewer 资源到 temp 目录"""
+    """从 viewer 目录复制资源到 temp 目录"""
     # 在 index.html 中插入 <script src="data.js"></script>
 ```
 
 **数据注入**:
 - 运行时生成 `temp/data.js`
-- 全局变量: `LOG_DATA`, `DATES`, `APP_VERSION`
+- 全局变量: `RECORD_DATA`, `DATES`, `APP_VERSION`
 
 ---
 
@@ -122,12 +138,20 @@ def get_viewer_files() -> (str, str):
 def check_and_report():
     """每分钟检测一次"""
     idle_time = get_idle_duration()
-    if idle_time < 60:  # 活跃
-        # 记录上一分钟
-        logger.write_log(f"{hour:02d}{minute:02d}")
-        update_tray_icon('active')
-    else:  # 闲置
-        update_tray_icon('idle')
+    is_active = idle_time < 60
+    
+    # 获取活动窗口信息
+    window_title, process_name = get_active_window_info()
+    
+    # 记录上一分钟
+    recorder.write_record(f"{hour:02d}{minute:02d}")
+    
+    # 写入数据库
+    backend.write(hour, minute, is_active, window_title, process_name)
+    
+    # 更新托盘图标
+    update_tray_icon('active' if is_active else 'idle')
+    
     time.sleep(60)
 ```
 
@@ -144,7 +168,7 @@ def check_and_report():
 
 - **框架**: React 18 + TypeScript
 - **构建工具**: Vite 5
-- **可视化**: Canvas 2D
+- **可视化**: ECharts
 
 ### 构建流程
 
@@ -175,15 +199,16 @@ npm run build  # 输出到 ../viewer/
 - 日期选择器
 - 活跃统计（小时/分钟）
 
-**布局**: 左侧日期列表 + 右侧热力图
+**布局**: 左侧日期列表 + 右侧马赛克图
 
 #### StateBlockChart.tsx
 
-**功能**: Canvas绘制热力图
+**功能**: ECharts 绘制马赛克图
 
 **参数**:
 - `slots`: 288个槽位的活跃计数 (0-5)
 - `size`: 格子大小 (默认16px)
+- `dayStartHour`: 一天起始小时 (默认0)
 
 **配色**:
 ```javascript
@@ -269,7 +294,7 @@ python build.py --release    # 创建发布包
 
 ```
 程序目录/
-├── pcstate.db          # SQLite 数据库
+├── pcstate.db          # SQLite 数据库（含记录数据和配置）
 ├── temp/                # 临时文件
 │   ├── data.js         # 导出的数据
 │   ├── index.html      # 前端页面
@@ -280,7 +305,7 @@ python build.py --release    # 创建发布包
 **路径计算**:
 ```python
 # 开发环境
-base_dir = dirname(dirname(dirname(__file__)))
+base_dir = dirname(dirname(abspath(__file__)))
 
 # 打包后
 base_dir = dirname(sys.executable)
@@ -300,7 +325,7 @@ slot = hour * 12 + minute // 5  # 0-287
 slots[slot] = min(slots[slot] + 1, 5)  # 上限5次
 ```
 
-**用途**: 前端热力图渲染，颜色深浅表示活跃程度
+**用途**: 前端马赛克图渲染，颜色深浅表示活跃程度
 
 ---
 
@@ -340,7 +365,7 @@ viewer_dir = join(sys._MEIPASS, 'viewer')
 **前端**:
 - React 18 + TypeScript
 - Vite 5
-- Canvas 2D
+- ECharts
 
 ---
 
@@ -348,4 +373,4 @@ viewer_dir = join(sys._MEIPASS, 'viewer')
 
 1. **高内聚低耦合**: 模块职责单一
 2. **最小化实现**: 只实现必要功能，不过度设计
-3. **单点修改**: 版本号、存储配置在根目录 `version.py` 统一管理
+3. **单点修改**: 版本号在根目录 `version.py` 统一管理

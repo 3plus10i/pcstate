@@ -1,10 +1,9 @@
 import { useEffect, useRef } from 'react'
 import * as echarts from 'echarts'
 
-interface StateBlockChartProps {
+interface StateBlockChartEChartsProps {
   slots: number[]
   size?: number
-  dayStartHour?: number
 }
 
 const COLORS = ['#eee', '#cce5ff', '#99ccff', '#66b2ff', '#3399ff', '#007bff']
@@ -14,7 +13,7 @@ const SIZE = 16
 const GAP = 1.5
 const PADDING = 10
 
-export function StateBlockChart({ slots, size = SIZE, dayStartHour = 0 }: StateBlockChartProps) {
+export function StateBlockChartECharts({ slots, size = SIZE }: StateBlockChartEChartsProps) {
   const chartRef = useRef<HTMLDivElement>(null)
   const chartInstanceRef = useRef<echarts.ECharts | null>(null)
 
@@ -49,16 +48,6 @@ export function StateBlockChart({ slots, size = SIZE, dayStartHour = 0 }: StateB
       for (let c = 0; c < COLS; c++) {
         const idx = r * COLS + c
         const val = Math.min(slots[idx] || 0, 5)
-        
-        // 计算实际时间
-        const actualHour = (r + dayStartHour) % 24
-        const isNextDay = r >= (24 - dayStartHour) && dayStartHour > 0
-        const startMin = c * 5
-        const endMin = startMin + 5
-        const timeStr = isNextDay 
-          ? `${String(actualHour).padStart(2, '0')}:${String(startMin).padStart(2, '0')}-${String(actualHour).padStart(2, '0')}:${String(endMin).padStart(2, '0')} (次日)`
-          : `${String(actualHour).padStart(2, '0')}:${String(startMin).padStart(2, '0')}-${String(actualHour).padStart(2, '0')}:${String(endMin).padStart(2, '0')}`
-
         data.push({
           x: PADDING + cellX[c],
           y: PADDING + cellY[r],
@@ -67,7 +56,7 @@ export function StateBlockChart({ slots, size = SIZE, dayStartHour = 0 }: StateB
           value: val,
           row: r,
           col: c,
-          timeStr: timeStr
+          timeStr: `${String(r).padStart(2, '0')}:${String(c * 5).padStart(2, '0')}-${String(r).padStart(2, '0')}:${String(c * 5 + 5).padStart(2, '0')}`
         })
       }
     }
@@ -117,7 +106,7 @@ export function StateBlockChart({ slots, size = SIZE, dayStartHour = 0 }: StateB
           type: 'custom',
           renderItem: (params: any, api: any) => {
             const dataItem = data[params.dataIndex]
-            if (!dataItem) return null
+            if (!dataItem) return {}
 
             const x = api.coord([dataItem.x, dataItem.y])[0]
             const y = api.coord([dataItem.x, dataItem.y])[1]
@@ -153,7 +142,7 @@ export function StateBlockChart({ slots, size = SIZE, dayStartHour = 0 }: StateB
     return () => {
       window.removeEventListener('resize', handleResize)
     }
-  }, [slots, size, dayStartHour])
+  }, [slots, size])
 
   const cellX = calculatePositions(COLS, size, GAP, true)
   const cellY = calculatePositions(ROWS, size, GAP, false)

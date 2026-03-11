@@ -16,9 +16,10 @@ import win32api
 import win32gui
 import win32con
 
-from src import idle_detector, logger, startup_manager, config
+from src import idle_detector, recorder, startup_manager, config
 from version import VERSION
 from src.exporter import export_data, get_viewer_files
+from src.utils import get_script_dir
 
 
 # 全局状态
@@ -27,14 +28,6 @@ running = True
 hwnd = None
 hwnd_active = None
 hwnd_idle = None
-
-
-def get_script_dir():
-    """获取脚本所在目录（exe所在目录，用于logs/temp等运行时文件）"""
-    if getattr(sys, 'frozen', False):
-        return os.path.dirname(sys.executable)
-    else:
-        return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def create_window():
@@ -222,7 +215,7 @@ def check_and_report():
 def main():
     """主函数"""
     global hwnd
-    print(f"PCState启动: {platform.node()}")
+    print(f"PCState启动: {platform.node()}，版本 {VERSION}")
 
     hwnd = create_window()
     add_tray_icon(hwnd, 'idle')

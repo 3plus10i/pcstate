@@ -3,9 +3,10 @@
 """
 
 import os
-import sys
 from datetime import date
 from typing import List, Optional
+
+from src.utils import get_script_dir
 
 
 class SQLiteStorage:
@@ -16,11 +17,7 @@ class SQLiteStorage:
         self._init_db()
 
     def _get_db_path(self) -> str:
-        if getattr(sys, 'frozen', False):
-            base_dir = os.path.dirname(sys.executable)
-        else:
-            # src -> 项目根目录
-            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        base_dir = get_script_dir()
         return os.path.join(base_dir, 'pcstate.db')
 
     def _init_db(self):
@@ -69,11 +66,25 @@ class SQLiteStorage:
                     PRIMARY KEY (date, minute)
                 )
             ''')
+        
+        # 创建配置表
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS config (
+                key TEXT NOT NULL,
+                value TEXT NOT NULL,
+                PRIMARY KEY (key)
+            )
+        ''')
+        
+        # 插入默认配置
+        conn.execute('''
+            INSERT OR IGNORE INTO config (key, value) VALUES ('day_start_hour', '0')
+        ''')
 
         conn.commit()
         conn.close()
 
-    def get_log_path(self, target_date: Optional[date] = None) -> str:
+    def get_record_path(self, target_date: Optional[date] = None) -> str:
         return self._db_path
 
     def write(self, hour: int, minute: int, is_active: bool,
@@ -135,3 +146,40 @@ class SQLiteStorage:
         conn.close()
 
         return slots
+
+    def get_config(self, key: str, default: str = '') -> str:
+        """获取配置值"""
+        import sqlite3
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.execute(
+            'SELECT value FROM config WHERE key = ?',
+            (key,)
+        )
+        row = cursor.fetchone()
+        conn.close()
+        return row[0] if row else default
+
+    def set_config(self, key: str, value: str) -> None:
+        """设置配置值"""
+        import sqlite3
+        conn = sqlite3.connect(self._db_path)
+        conn.execute(
+            'INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)',
+            (key, value)
+        )
+        conn.commit()
+        conn.close()
+
+    def get_day_start_hour(self) -> int:
+        """获取一天起始小时"""
+        value = self.get_config('day_start_hour', '0')
+        try:
+            return int(value)
+        except ValueError:
+            return 0
+
+    def set_day_start_hour(self, hour: int) -> None:
+        """设置一天起始小时"""
+        if hour not in [0, 4]:
+            raise ValueError("day_start_hour must be 0 or 4")
+        self.set_config('day_start_hour', str(hour))

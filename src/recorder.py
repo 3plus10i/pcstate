@@ -1,5 +1,5 @@
 """
-日志模块 - SQLite 数据库存储
+记录模块 - SQLite 数据库存储
 """
 
 from datetime import date
@@ -20,27 +20,27 @@ def _get_backend() -> SQLiteStorage:
     return _backend
 
 
-def get_log_path(target_date: Optional[date] = None) -> str:
-    """获取日志文件路径"""
-    return _get_backend().get_log_path(target_date)
+def get_record_path(target_date: Optional[date] = None) -> str:
+    """获取记录文件路径"""
+    return _get_backend().get_record_path(target_date)
 
 
-def write_log(record: str, log_path: str = None) -> None:
+def write_record(record: str, record_path: str = None) -> None:
     """
-    写入日志记录
+    写入记录
     
     Args:
         record: 时间记录，格式 HHMM（例如：1621 表示 16:21）
-        log_path: 忽略，保留向后兼容
+        record_path: 忽略，保留向后兼容
     """
     hour = int(record[:2])
     minute = int(record[2:4])
     _get_backend().write(hour, minute)
 
 
-def read_log_by_date(log_date: str) -> List[str]:
-    """读取指定日期的日志"""
-    target_date = date.fromisoformat(log_date)
+def read_records_by_date(record_date: str) -> List[str]:
+    """读取指定日期的记录"""
+    target_date = date.fromisoformat(record_date)
     return _get_backend().read_by_date(target_date)
 
 
@@ -49,17 +49,17 @@ def get_slots_by_date(target_date: date) -> List[int]:
     return _get_backend().get_slots(target_date)
 
 
-def get_logs_dir() -> str:
-    """获取数据文件所在目录"""
+def get_records_dir() -> str:
+    """获取记录数据文件所在目录"""
     import os
-    return os.path.dirname(get_log_path())
+    return os.path.dirname(get_record_path())
 
 
-def get_log_files() -> List[str]:
+def get_record_files() -> List[str]:
     """获取数据库文件列表"""
     import os
     
-    db_path = get_log_path()
+    db_path = get_record_path()
     if os.path.exists(db_path):
         return [os.path.basename(db_path)]
     return []
@@ -68,4 +68,4 @@ def get_log_files() -> List[str]:
 if __name__ == '__main__':
     # 测试
     print("存储后端:", _get_backend().__class__.__name__)
-    print("数据库路径:", get_log_path())
+    print("数据库路径:", get_record_path())

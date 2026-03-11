@@ -12,21 +12,7 @@ from typing import List, Tuple
 from version import VERSION
 from src.sqlite import SQLiteStorage
 from src import config
-
-
-def get_script_dir() -> str:
-    """获取脚本所在目录"""
-    if getattr(sys, 'frozen', False):
-        return os.path.dirname(sys.executable)
-    else:
-        return os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-
-def get_temp_dir() -> str:
-    """获取临时目录"""
-    temp_dir = os.path.join(get_script_dir(), 'temp')
-    os.makedirs(temp_dir, exist_ok=True)
-    return temp_dir
+from src.utils import get_script_dir, get_temp_dir
 
 
 def get_viewer_dir() -> str:
@@ -123,7 +109,7 @@ def export_data() -> Tuple[str, int]:
     temp_dir = get_temp_dir()
     output_file = os.path.join(temp_dir, 'data.js')
 
-    log_data = []
+    record_data = []
     dates = get_recent_dates(14)
     backend = SQLiteStorage()
     day_start_hour = config.get_day_start_hour()
@@ -138,9 +124,9 @@ def export_data() -> Tuple[str, int]:
             # 自定义起始时间模式
             slots = get_slots_for_custom_day(target_date, day_start_hour)
         
-        log_data.append(slots)
+        record_data.append(slots)
 
-    js_content = f"const LOG_DATA = {json.dumps(log_data, ensure_ascii=False)};\n"
+    js_content = f"const RECORD_DATA = {json.dumps(record_data, ensure_ascii=False)};\n"
     js_content += f"const DATES = {json.dumps(dates, ensure_ascii=False)};\n"
     js_content += f"const APP_VERSION = '{VERSION}';\n"
     js_content += f"const DAY_START_HOUR = {day_start_hour};\n"
@@ -148,7 +134,7 @@ def export_data() -> Tuple[str, int]:
     with open(output_file, 'w', encoding='utf-8') as f:
         f.write(js_content)
 
-    valid_days = sum(1 for slots in log_data if sum(slots) > 0)
+    valid_days = sum(1 for slots in record_data if sum(slots) > 0)
     return output_file, valid_days
 
 
@@ -177,14 +163,16 @@ def get_viewer_files() -> Tuple[str, str]:
 
     if os.path.exists(html_src):
         # 修改 index.html，在 </body> 前插入 data.js 引用
-        with open(html_src, 'r', encoding='utf-8') as f:
+        with open(html_src, 'r', encoding='utf-8', errors='ignore') as f:
             html_content = f.read()
 
-        # 在 </body> 前插入 data.js 脚本
-        if '</body>' in html_content:
-            html_content = html_content.replace('</body>', '    <script src="data.js"></script>\n</body>')
+        # 确保找到 </body> 标签
+        body_end_index = html_content.rfind('</body>')
+        if body_end_index != -1:
+            # 在 </body> 前插入 data.js 脚本
+            html_content = html_content[:body_end_index] + '    <script src="data.js"></script>\n' + html_content[body_end_index:]
 
-        with open(html_dst, 'w', encoding='utf-8') as f:
+        with open(html_dst, 'w', encoding='utf-8', errors='ignore') as f:
             f.write(html_content)
 
     return html_dst, assets_dst

@@ -3,7 +3,7 @@ import { StateBlockChart } from './StateBlockChart'
 
 // 全局变量类型声明
 declare global {
-  const LOG_DATA: number[][]
+  const RECORD_DATA: number[][]
   const DATES: string[]
   const APP_VERSION: string
   const DAY_START_HOUR: number
@@ -42,7 +42,7 @@ function formatDuration(minutes: number): string {
 export function App() {
   const [selectedIndex, setSelectedIndex] = useState(0)
 
-  const slots = LOG_DATA?.[selectedIndex] || []
+  const slots = RECORD_DATA?.[selectedIndex] || []
   const dateStr = DATES?.[selectedIndex] || ''
   const activeSlots = slots.filter(v => v > 0).length
   const activeMinutes = activeSlots * 5
@@ -91,7 +91,7 @@ export function App() {
               </div>
               <div>
                 {DATES?.map((date, i) => {
-                  const mins = (LOG_DATA[i]?.filter(v => v > 0).length || 0) * 5
+                  const mins = (RECORD_DATA[i]?.filter(v => v > 0).length || 0) * 5
                   return (
                     <div
                       key={date}
