@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { subDays, addDays, format } from 'date-fns'
 import { StateBlockChart } from './StateBlockChart'
 import { HourlyBarChart } from './HourlyBarChart'
 import { AppPieChart } from './AppPieChart'
@@ -36,12 +37,7 @@ function getDateInfo(dateStr: string): string {
   const weekDays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六']
   const weekDay = weekDays[d.getDay()]
   
-  // 第几周
-  const firstDay = new Date(d.getFullYear(), 0, 1)
-  const pastDays = Math.floor((d.getTime() - firstDay.getTime()) / (24 * 60 * 60 * 1000))
-  const weekNum = Math.ceil((pastDays + firstDay.getDay() + 1) / 7)
-  
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${weekDay} 第${weekNum}周`
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${weekDay}`
 }
 
 function formatDuration(minutes: number): string {
@@ -66,6 +62,7 @@ export function App() {
   
   // 日期选择器停留在当天日期
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false)
 
   // 检查是否有数据
   const hasData = recordData.length > 0 && dates.length > 0
@@ -102,9 +99,16 @@ export function App() {
   const handleDateChange = (date: Date | null) => {
     if (date) {
       setSelectedDate(date)
+      setIsDatePickerOpen(false)
       // 这里可以根据选择的日期更新 selectedIndex
       // 暂时简化处理，实际项目中需要根据日期找到对应的索引
     }
+  }
+
+  // 处理日期按钮点击
+  const handleDateButtonClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault()
+    setIsDatePickerOpen(!isDatePickerOpen)
   }
 
   // 模拟日期切换（暂时简化实现）
@@ -244,22 +248,10 @@ export function App() {
                 overflow: 'hidden'
               }}>
                 <div style={{
-                  width: '100%',
-                  overflow: 'hidden',
-                  fontSize: 12
-                }}>
-                  <DatePicker
-                    selected={selectedDate}
-                    onChange={handleDateChange}
-                    inline
-                    dateFormat="yyyyMMdd"
-                  />
-                </div>
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  marginTop: 8
-                }}>
+                display: 'flex',
+                gap: 8,
+                width: '100%'
+              }}>
                   <button
                     onClick={handlePrevDate}
                     style={{
@@ -267,12 +259,52 @@ export function App() {
                       border: '1px solid #d9d9d9',
                       background: '#fff',
                       cursor: 'pointer',
-                      fontSize: 14,
-                      borderRadius: 4
+                      fontSize: 12,
+                      borderRadius: 4,
+                      whiteSpace: 'nowrap'
                     }}
                   >
                     前一天
                   </button>
+                  <div style={{
+                    flex: 1,
+                    overflow: 'hidden',
+                    fontSize: 12
+                  }}>
+                    <button
+                      onClick={handleDateButtonClick}
+                      style={{
+                        width: '100%',
+                        padding: '6px 12px',
+                        border: '1px solid #d9d9d9',
+                        background: '#fff',
+                        cursor: 'pointer',
+                        fontSize: 12,
+                        borderRadius: 4,
+                        whiteSpace: 'nowrap',
+                        textAlign: 'left'
+                      }}
+                    >
+                      {format(selectedDate, 'yyyy/MM/dd')}
+                    </button>
+                    {isDatePickerOpen && (
+                      <div style={{
+                        position: 'absolute',
+                        zIndex: 1000,
+                        marginTop: 4
+                      }}>
+                        <DatePicker
+                          selected={selectedDate}
+                          onChange={handleDateChange}
+                          inline
+                          showWeekNumbers
+                          includeDateIntervals={[
+                            { start: subDays(new Date(), 30), end: addDays(new Date(), 1) }
+                          ]}
+                        />
+                      </div>
+                    )}
+                  </div>
                   <button
                     onClick={handleNextDate}
                     style={{
@@ -280,8 +312,9 @@ export function App() {
                       border: '1px solid #d9d9d9',
                       background: '#fff',
                       cursor: 'pointer',
-                      fontSize: 14,
-                      borderRadius: 4
+                      fontSize: 12,
+                      borderRadius: 4,
+                      whiteSpace: 'nowrap'
                     }}
                   >
                     后一天
