@@ -5,13 +5,23 @@ import { AppPieChart } from './AppPieChart'
 import { AppStackedBarChart } from './AppStackedBarChart'
 import { WindowStackedBarChart } from './WindowStackedBarChart'
 import { getSlotValue, getDateInfo } from '../dataProcessor'
-import { PCSTATE_DATA } from '../../data.js'
+import { PcStateData } from '../dataProcessor'
 import DatePicker from 'react-datepicker'
 import 'react-datepicker/dist/react-datepicker.css'
 
+declare global {
+  interface Window {
+    PCSTATE_DATA?: PcStateData
+  }
+}
+
 export function App() {
-  const pcStateData = PCSTATE_DATA
-  const version = pcStateData?.version || '1.0.0'
+  const pcStateData = window.PCSTATE_DATA || {
+    version: '1.0.0',
+    day_start_hour: 0,
+    record: []
+  }
+  const version = pcStateData.version
 
   const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('day')
   const [chartType, setChartType] = useState<'mosaic' | 'appPie' | 'appStack' | 'windowStack'>('mosaic')
@@ -50,10 +60,10 @@ export function App() {
     }
   }, [isDatePickerOpen])
 
-  const processedData = useMemo(() => {
+  const processedData: ReturnType<typeof getSlotValue> | null = useMemo(() => {
     if (!pcStateData) return null
     return getSlotValue(pcStateData, selectedDate)
-  }, [pcStateData, selectedDate]) as ReturnType<typeof getSlotValue> | null
+  }, [pcStateData, selectedDate])
 
   const values = processedData?.slots || []
   const appHourly = processedData?.appHourly || []
@@ -176,7 +186,7 @@ export function App() {
                     borderBottom: '1px solid #e8e8e8'
                   }}
                 >
-                  周视图
+                  7天视图
                 </div>
                 <div
                   onClick={() => setViewMode('month')}
@@ -187,7 +197,7 @@ export function App() {
                     color: viewMode === 'month' ? '#fff' : 'rgba(0,0,0,0.45)'
                   }}
                 >
-                  月视图
+                  30天视图
                 </div>
               </div>
             </div>
@@ -380,7 +390,7 @@ export function App() {
               borderBottom: '1px solid #e8e8e8',
               textAlign: 'center'
             }}>
-              {getDateInfo(selectedDate as any)} - {
+              {getDateInfo(selectedDate)} - {
                 chartType === 'mosaic' ? '马赛克图' :
                 chartType === 'appPie' ? '应用时长饼图' :
                 chartType === 'appStack' ? '应用时长堆叠柱状图' :

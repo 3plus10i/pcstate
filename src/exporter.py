@@ -101,7 +101,7 @@ def get_slots_for_custom_day(target_date: date, start_hour: int) -> List[int]:
 
 def export_data() -> Tuple[str, int]:
     """
-    导出数据到 JS 文件
+    导出数据到 JS 文件（全局变量格式）
     注意：只导出原始数据（按自然日），起始时间偏移由前端处理
 
     Returns:
@@ -143,7 +143,8 @@ def export_data() -> Tuple[str, int]:
         "record": record_list
     }
 
-    js_content = f"export const PCSTATE_DATA = {json.dumps(pcstate_data, ensure_ascii=False)};\n"
+    # 直接导出为全局变量格式（不是 ES Module）
+    js_content = f"window.PCSTATE_DATA = {json.dumps(pcstate_data, ensure_ascii=False)};\n"
 
     # 写入 temp 目录（生产环境使用）
     with open(output_file, 'w', encoding='utf-8') as f:
@@ -151,6 +152,47 @@ def export_data() -> Tuple[str, int]:
 
     valid_days = sum(1 for r in record_list if len(r["slots"]) > 0 and sum(r["slots"]) > 0)
     return output_file, valid_days
+
+
+def inject_data_script(html_content: str) -> str:
+    """
+    在 HTML 中注入数据脚本
+    
+    Args:
+        html_content: 原始 HTML 内容
+        
+    Returns:
+        注入数据脚本后的 HTML 内容
+    """
+    # 生成数据脚本
+    temp_dir = get_temp_dir()
+    data_file = os.path.join(temp_dir, 'data.js')
+    
+    # 读取数据文件内容
+    data_script_content = ''
+    if os.path.exists(data_file):
+        with open(data_file, 'r', encoding='utf-8') as f:
+            data_script_content = f.read()
+    else:
+        # 如果没有数据文件，使用默认数据
+        data_script_content = 'window.PCSTATE_DATA = {version: "1.0.0", day_start_hour: 0, record: []};'
+    
+    # 将 ES Module 格式转换为普通脚本格式
+    data_script_content = data_script_content.replace(
+        'export const PCSTATE_DATA = ',
+        'window.PCSTATE_DATA = '
+    )
+    
+    # 创建 script 标签
+    data_script_tag = f'<script>\n{data_script_content}\n</script>'
+    
+    # 替换占位符
+    html_content = html_content.replace(
+        '<!-- DATA_SCRIPT_PLACEHOLDER -->',
+        data_script_tag
+    )
+    
+    return html_content
 
 
 def get_viewer_files() -> Tuple[str, str]:
@@ -163,23 +205,22 @@ def get_viewer_files() -> Tuple[str, str]:
     viewer_dir = get_viewer_dir()
     temp_dir = get_temp_dir()
 
-    # 复制 assets 目录（如果存在）
-    assets_src = os.path.join(viewer_dir, 'assets')
-    assets_dst = os.path.join(temp_dir, 'assets')
-
-    if os.path.exists(assets_src):
-        if os.path.exists(assets_dst):
-            shutil.rmtree(assets_dst)
-        shutil.copytree(assets_src, assets_dst)
-
-    # 复制 index.html（data.js 引用已在源文件中硬编码）
+    # 复制 index.html 并注入数据脚本
     html_src = os.path.join(viewer_dir, 'index.html')
     html_dst = os.path.join(temp_dir, 'index.html')
 
     if os.path.exists(html_src):
-        shutil.copy2(html_src, html_dst)
+        with open(html_src, 'r', encoding='utf-8') as f:
+            html_content = f.read()
+        
+        # 注入数据脚本
+        html_content = inject_data_script(html_content)
+        
+        with open(html_dst, 'w', encoding='utf-8') as f:
+            f.write(html_content)
 
-    return html_dst, assets_dst
+    # 返回 html 路径和 temp 目录（用于浏览器打开）
+    return html_dst, temp_dir
 
 
 def prepare_viewer() -> str:
