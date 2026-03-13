@@ -148,12 +148,6 @@ def export_data() -> Tuple[str, int]:
     # 写入 temp 目录（生产环境使用）
     with open(output_file, 'w', encoding='utf-8') as f:
         f.write(js_content)
-    
-    # 同时写入 frontend 目录（开发环境使用）
-    frontend_dir = os.path.join(get_script_dir(), 'frontend')
-    frontend_data_file = os.path.join(frontend_dir, 'data.js')
-    with open(frontend_data_file, 'w', encoding='utf-8') as f:
-        f.write(js_content)
 
     valid_days = sum(1 for r in record_list if len(r["slots"]) > 0 and sum(r["slots"]) > 0)
     return output_file, valid_days

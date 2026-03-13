@@ -1,4 +1,4 @@
-declare module '../../data' {
+declare module '../../data.js' {
   export interface RecordItem {
     date: string
     slots: number[]

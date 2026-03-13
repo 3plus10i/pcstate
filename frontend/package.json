@@ -1,9 +1,10 @@
 {
   "name": "pcstate-viewer",
   "private": true,
-  "version": "1.6.2",
+  "version": "1.6.3",
   "type": "module",
   "scripts": {
+    "predev": "cd .. && python src/exporter.py && cp temp/data.js frontend/data.js",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview"
