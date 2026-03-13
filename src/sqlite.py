@@ -3,7 +3,7 @@
 """
 
 import os
-from datetime import date
+from datetime import date, timedelta
 from typing import List, Optional
 
 from src.utils import get_script_dir
@@ -11,10 +11,99 @@ from src.utils import get_script_dir
 
 class SQLiteStorage:
     """SQLite 数据库存储"""
-
+    
+    # 配置常量
+    MAX_DB_SIZE_MB = 300  # 最大数据库文件大小（MB）
+    CLEANUP_DAYS = 90  # 清理多少天前的数据
+    
     def __init__(self):
         self._db_path = self._get_db_path()
         self._init_db()
+        self._cleanup_performed = False  # 标记本次运行是否已执行过清理
+    
+    def _get_db_size_mb(self) -> float:
+        """获取数据库文件大小（MB）"""
+        if os.path.exists(self._db_path):
+            size_bytes = os.path.getsize(self._db_path)
+            return size_bytes / (1024 * 1024)
+        return 0.0
+    
+    def _should_cleanup(self) -> bool:
+        """判断是否需要清理数据"""
+        # 如果本次运行已清理过，不再检查
+        if self._cleanup_performed:
+            return False
+        
+        size_mb = self._get_db_size_mb()
+        return size_mb > self.MAX_DB_SIZE_MB
+    
+    def _vacuum_db(self) -> None:
+        """压缩数据库文件"""
+        import sqlite3
+        
+        print("正在压缩数据库以释放空间...")
+        try:
+            conn = sqlite3.connect(self._db_path)
+            conn.execute('VACUUM')
+            conn.close()
+            
+            new_size_mb = self._get_db_size_mb()
+            print(f"数据库压缩完成，当前大小: {new_size_mb:.2f}MB")
+        except Exception as e:
+            print(f"数据库压缩失败: {e}")
+    
+    def _cleanup_old_data(self) -> None:
+        """清理旧数据"""
+        import sqlite3
+        
+        cutoff_date = date.today() - timedelta(days=self.CLEANUP_DAYS)
+        cutoff_date_str = cutoff_date.isoformat()
+        
+        print(f"数据库文件超过 {self.MAX_DB_SIZE_MB}MB，开始清理 {self.CLEANUP_DAYS} 天前的数据（{cutoff_date_str} 之前）")
+        
+        try:
+            conn = sqlite3.connect(self._db_path)
+            
+            # 统计删除前的数据量
+            cursor = conn.execute('SELECT COUNT(*) FROM activity WHERE date < ?', (cutoff_date_str,))
+            old_records_count = cursor.fetchone()[0]
+            
+            if old_records_count == 0:
+                print("没有找到需要清理的旧数据")
+                conn.close()
+                return
+            
+            print(f"找到 {old_records_count} 条旧数据，正在清理...")
+            
+            # 删除旧数据
+            conn.execute('DELETE FROM activity WHERE date < ?', (cutoff_date_str,))
+            conn.commit()
+            
+            # 获取删除后的数据量
+            cursor = conn.execute('SELECT COUNT(*) FROM activity')
+            remaining_count = cursor.fetchone()[0]
+            
+            conn.close()
+            
+            print(f"清理完成，剩余 {remaining_count} 条数据")
+            
+            # 标记已执行清理
+            self._cleanup_performed = True
+            
+            # 执行 VACUUM 压缩数据库，释放删除后留下的空间
+            self._vacuum_db()
+            
+        except Exception as e:
+            print(f"清理旧数据失败: {e}")
+    
+    def check_and_cleanup(self) -> None:
+        """检查并清理数据（公共接口）"""
+        if self._should_cleanup():
+            self._cleanup_old_data()
+            
+            # 清理后记录新的大小
+            new_size_mb = self._get_db_size_mb()
+            print(f"清理后数据库大小: {new_size_mb:.2f}MB")
 
     def _get_db_path(self) -> str:
         base_dir = get_script_dir()

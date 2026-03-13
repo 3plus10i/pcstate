@@ -23,7 +23,7 @@ def get_viewer_dir() -> str:
         return os.path.join(get_script_dir(), 'viewer')
 
 
-def get_recent_dates(days: int = 30) -> List[str]:
+def get_recent_dates(days: int = 31) -> List[str]:
     """获取最近N天的日期列表"""
     dates = []
     today = date.today()
@@ -103,6 +103,7 @@ def export_data() -> Tuple[str, int]:
     """
     导出数据到 JS 文件（全局变量格式）
     注意：只导出原始数据（按自然日），起始时间偏移由前端处理
+    限制导出最近31天的数据
 
     Returns:
         (文件路径, 有效天数)
@@ -110,7 +111,7 @@ def export_data() -> Tuple[str, int]:
     temp_dir = get_temp_dir()
     output_file = os.path.join(temp_dir, 'data.js')
 
-    dates = get_recent_dates(30)
+    dates = get_recent_dates(31)
     backend = SQLiteStorage()
     day_start_hour = config.get_day_start_hour()
 

@@ -216,6 +216,13 @@ def main():
     """主函数"""
     global hwnd
     print(f"PCState启动: {platform.node()}，版本 {VERSION}")
+    
+    # 程序启动时检查并清理旧数据
+    try:
+        from src.sqlite import SQLiteStorage
+        SQLiteStorage().check_and_cleanup()
+    except Exception as e:
+        print(f"启动时数据清理检查失败: {e}")
 
     hwnd = create_window()
     add_tray_icon(hwnd, 'idle')
