@@ -46,15 +46,24 @@ export function AppStackedBarChart({ hourlyAppData, dayStartHour }: AppStackedBa
     })
     
     const allApps = new Set<string>()
+    const appTotalDuration = new Map<string, number>()
+    
     hourlyAppData.forEach(hourData => {
       if (hourData && typeof hourData === 'object') {
-        Object.keys(hourData).forEach(app => allApps.add(app))
+        Object.keys(hourData).forEach(app => {
+          allApps.add(app)
+          appTotalDuration.set(app, (appTotalDuration.get(app) || 0) + (hourData[app] || 0))
+        })
       }
     })
     
-    const appList = Array.from(allApps)
+    const sortedApps = Array.from(appTotalDuration.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
     
-    if (appList.length === 0) {
+    const top10Apps = sortedApps.map(entry => entry[0])
+    
+    if (top10Apps.length === 0) {
       chart.clear()
       chart.setOption({
         title: {
@@ -69,22 +78,63 @@ export function AppStackedBarChart({ hourlyAppData, dayStartHour }: AppStackedBa
       })
       return
     }
-    
-    const seriesData = appList.map(app => {
-      const data = hourlyAppData.map(hourData => (hourData && typeof hourData === 'object') ? (hourData[app] || 0) : 0)
-      return {
-        name: app,
-        type: 'bar' as const,
-        stack: 'total',
-        data: data
-      }
-    })
 
     const colors = [
       '#1890ff', '#52c41a', '#faad14', '#f5222d', '#722ed1',
-      '#eb2f96', '#fa8c16', '#13c2c2', '#2f54eb', '#a0d911',
-      '#fadb14', '#9254de', '#ffec3d', '#ff7a45', '#ffc53d'
+      '#eb2f96', '#fa8c16', '#13c2c2', '#2f54eb', '#a0d911'
     ]
+
+    const appColors = new Map<string, string>()
+    top10Apps.forEach((app, index) => {
+      appColors.set(app, colors[index % colors.length])
+    })
+    appColors.set('其他', '#d9d9d9')
+
+    const seriesData = []
+    
+    for (let i = 0; i < 5; i++) {
+      const app = top10Apps[i]
+      if (!app) break
+      
+      const data = hourlyAppData.map(hourData => {
+        if (!hourData || typeof hourData !== 'object') return 0
+        return hourData[app] || 0
+      })
+      
+      seriesData.push({
+        name: app,
+        type: 'bar' as const,
+        stack: 'total',
+        data: data,
+        itemStyle: {
+          color: appColors.get(app),
+          borderColor: '#fff',
+          borderWidth: 1
+        }
+      })
+    }
+    
+    const otherData = hourlyAppData.map(hourData => {
+      if (!hourData || typeof hourData !== 'object') return 0
+      let total = 0
+      top10Apps.slice(0, 5).forEach(app => {
+        total += (hourData[app] || 0)
+      })
+      const hourTotal = Object.values(hourData).reduce((sum, val) => sum + val, 0)
+      return hourTotal - total
+    })
+    
+    seriesData.push({
+      name: '其他',
+      type: 'bar' as const,
+      stack: 'total',
+      data: otherData,
+      itemStyle: {
+        color: '#d9d9d9',
+        borderColor: '#fff',
+        borderWidth: 1
+      }
+    })
 
     const option: echarts.EChartsOption = {
       title: {
@@ -106,12 +156,47 @@ export function AppStackedBarChart({ hourlyAppData, dayStartHour }: AppStackedBa
         padding: [8, 12],
         formatter: (params: any) => {
           const hour = params[0].name
-          let total = 0
-          let items = params.map((item: any) => {
-            total += item.value
-            return `${item.seriesName}：${item.value}分钟`
+          const displayHour = parseInt(hour.replace('时', ''))
+          let originalHourIndex: number
+          
+          if (displayHour >= dayStartHour) {
+            originalHourIndex = displayHour - dayStartHour
+          } else {
+            originalHourIndex = displayHour + 24 - dayStartHour
+          }
+          
+          const hourData = hourlyAppData[originalHourIndex]
+          
+          if (!hourData || typeof hourData !== 'object') {
+            return `${hour}<br/>无数据`
+          }
+          
+          const appEntries = Object.entries(hourData)
+            .filter(([_, value]) => value > 0)
+            .sort((a, b) => b[1] - a[1])
+          
+          if (appEntries.length === 0) {
+            return `${hour}<br/>无数据`
+          }
+          
+          let tableHtml = `<table style="border-collapse: collapse; width: 100%;">`
+          tableHtml += `<tr style="border-bottom: 1px solid #e8e8e8;">`
+          tableHtml += `<th style="padding: 4px 8px; text-align: left; font-weight: bold; color: rgba(0,0,0,0.85);">${hour}</th>`
+          tableHtml += `<th style="padding: 4px 8px; text-align: right; font-weight: bold; color: rgba(0,0,0,0.85);">时长(分钟)</th>`
+          tableHtml += `</tr>`
+          
+          appEntries.forEach(([app, value]) => {
+            const color = appColors.get(app) || '#d9d9d9'
+            tableHtml += `<tr style="border-bottom: 1px solid #f0f0f0;">`
+            tableHtml += `<td style="padding: 4px 8px; text-align: left;">`
+            tableHtml += `<span style="display: inline-block; width: 10px; height: 10px; background: ${color}; border-radius: 2px; margin-right: 6px;"></span>`
+            tableHtml += `${app}</td>`
+            tableHtml += `<td style="padding: 4px 8px; text-align: right; color: rgba(0,0,0,0.85);">${value}</td>`
+            tableHtml += `</tr>`
           })
-          return `${hour} 总计：${total}分钟<br/>${items.join('<br/>')}`
+          
+          tableHtml += `</table>`
+          return tableHtml
         }
       },
       legend: {
@@ -124,7 +209,7 @@ export function AppStackedBarChart({ hourlyAppData, dayStartHour }: AppStackedBa
           fontSize: 11,
           color: 'rgba(0,0,0,0.65)'
         },
-        data: appList
+        data: top10Apps
       },
       grid: {
         left: 60,
@@ -179,8 +264,7 @@ export function AppStackedBarChart({ hourlyAppData, dayStartHour }: AppStackedBa
           }
         }
       },
-      series: seriesData,
-      color: colors
+      series: seriesData
     }
 
     chart.setOption(option, { notMerge: true })

@@ -6,7 +6,7 @@ import os
 import sys
 import json
 import shutil
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import List, Tuple
 
 from version import VERSION
@@ -23,13 +23,13 @@ def get_viewer_dir() -> str:
         return os.path.join(get_script_dir(), 'viewer')
 
 
-def get_recent_dates(days: int = 14) -> List[str]:
+def get_recent_dates(days: int = 30) -> List[str]:
     """获取最近N天的日期列表"""
     dates = []
     today = date.today()
     for i in range(days):
         d = today - timedelta(days=i)
-        dates.append(d.strftime('%Y-%m-%d'))
+        dates.append(d.strftime('%Y%m%d'))  # 格式改为 YYYYMMDD
     return dates
 
 
@@ -102,6 +102,7 @@ def get_slots_for_custom_day(target_date: date, start_hour: int) -> List[int]:
 def export_data() -> Tuple[str, int]:
     """
     导出数据到 JS 文件
+    注意：只导出原始数据（按自然日），起始时间偏移由前端处理
 
     Returns:
         (文件路径, 有效天数)
@@ -109,56 +110,52 @@ def export_data() -> Tuple[str, int]:
     temp_dir = get_temp_dir()
     output_file = os.path.join(temp_dir, 'data.js')
 
-    record_data = []
-    app_data = []  # 新增应用时长数据
-    window_data = []  # 新增窗口时长数据
-    hourly_app_data = []  # 新增每小时应用时长数据
-    hourly_window_data = []  # 新增每小时窗口时长数据
-    dates = get_recent_dates(14)
+    dates = get_recent_dates(30)
     backend = SQLiteStorage()
     day_start_hour = config.get_day_start_hour()
 
+    record_list = []
+
     for date_str in dates:
-        target_date = date.fromisoformat(date_str)
+        target_date = datetime.strptime(date_str, '%Y%m%d').date()
         
-        if day_start_hour == 0:
-            # 标准模式
-            slots = backend.get_slots(target_date)
-        else:
-            # 自定义起始时间模式
-            slots = get_slots_for_custom_day(target_date, day_start_hour)
+        # 直接获取原始数据（按自然日），不做偏移处理
+        slots = backend.get_slots(target_date)
+        has_data = sum(slots) > 0
         
-        record_data.append(slots)
-        
-        # 获取应用时长数据
-        app_durations = backend.get_app_durations(target_date, day_start_hour)
-        app_data.append(app_durations)
-        
-        # 获取窗口时长数据
-        window_durations = backend.get_window_durations(target_date, day_start_hour)
-        window_data.append(window_durations)
-        
-        # 获取每小时应用时长数据
-        hourly_app_durations = backend.get_hourly_app_durations(target_date, day_start_hour)
-        hourly_app_data.append(hourly_app_durations)
-        
-        # 获取每小时窗口时长数据
-        hourly_window_durations = backend.get_hourly_window_durations(target_date, day_start_hour)
-        hourly_window_data.append(hourly_window_durations)
+        # 获取每小时应用/窗口数据（原始数据）
+        hourly_app_durations = backend.get_hourly_app_durations(target_date, 0)
+        hourly_window_durations = backend.get_hourly_window_durations(target_date, 0)
 
-    js_content = f"const RECORD_DATA = {json.dumps(record_data, ensure_ascii=False)};\n"
-    js_content += f"const DATES = {json.dumps(dates, ensure_ascii=False)};\n"
-    js_content += f"const APP_DATA = {json.dumps(app_data, ensure_ascii=False)};\n"
-    js_content += f"const WINDOW_DATA = {json.dumps(window_data, ensure_ascii=False)};\n"
-    js_content += f"const HOURLY_APP_DATA = {json.dumps(hourly_app_data, ensure_ascii=False)};\n"
-    js_content += f"const HOURLY_WINDOW_DATA = {json.dumps(hourly_window_data, ensure_ascii=False)};\n"
-    js_content += f"const APP_VERSION = '{VERSION}';\n"
-    js_content += f"const DAY_START_HOUR = {day_start_hour};\n"
+        # 构建记录项
+        record_item = {
+            "date": date_str,
+            "slots": slots if has_data else [],
+            "app_hourly": hourly_app_durations if has_data else [{} for _ in range(24)],
+            "window_hourly": hourly_window_durations if has_data else [{} for _ in range(24)],
+        }
+        record_list.append(record_item)
 
+    # 新数据结构
+    pcstate_data = {
+        "version": VERSION,
+        "day_start_hour": day_start_hour,
+        "record": record_list
+    }
+
+    js_content = f"export const PCSTATE_DATA = {json.dumps(pcstate_data, ensure_ascii=False)};\n"
+
+    # 写入 temp 目录（生产环境使用）
     with open(output_file, 'w', encoding='utf-8') as f:
         f.write(js_content)
+    
+    # 同时写入 frontend 目录（开发环境使用）
+    frontend_dir = os.path.join(get_script_dir(), 'frontend')
+    frontend_data_file = os.path.join(frontend_dir, 'data.js')
+    with open(frontend_data_file, 'w', encoding='utf-8') as f:
+        f.write(js_content)
 
-    valid_days = sum(1 for slots in record_data if sum(slots) > 0)
+    valid_days = sum(1 for r in record_list if len(r["slots"]) > 0 and sum(r["slots"]) > 0)
     return output_file, valid_days
 
 
@@ -181,23 +178,12 @@ def get_viewer_files() -> Tuple[str, str]:
             shutil.rmtree(assets_dst)
         shutil.copytree(assets_src, assets_dst)
 
-    # 复制 index.html
+    # 复制 index.html（data.js 引用已在源文件中硬编码）
     html_src = os.path.join(viewer_dir, 'index.html')
     html_dst = os.path.join(temp_dir, 'index.html')
 
     if os.path.exists(html_src):
-        # 修改 index.html，在 </body> 前插入 data.js 引用
-        with open(html_src, 'r', encoding='utf-8', errors='ignore') as f:
-            html_content = f.read()
-
-        # 确保找到 </body> 标签
-        body_end_index = html_content.rfind('</body>')
-        if body_end_index != -1:
-            # 在 </body> 前插入 data.js 脚本
-            html_content = html_content[:body_end_index] + '    <script src="data.js"></script>\n' + html_content[body_end_index:]
-
-        with open(html_dst, 'w', encoding='utf-8', errors='ignore') as f:
-            f.write(html_content)
+        shutil.copy2(html_src, html_dst)
 
     return html_dst, assets_dst
 

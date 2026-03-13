@@ -172,7 +172,7 @@ class SQLiteStorage:
             )
             for row in cursor:
                 minute_of_day = row[0]
-                process_name = row[1] or '其他'
+                process_name = row[1] or '未知'
                 is_active = row[2]
                 
                 if is_active:
@@ -191,7 +191,7 @@ class SQLiteStorage:
             )
             for row in cursor:
                 minute_of_day = row[0]
-                process_name = row[1] or '其他'
+                process_name = row[1] or '未知'
                 is_active = row[2]
                 
                 if is_active and minute_of_day >= day_start_hour * 60:
@@ -210,7 +210,7 @@ class SQLiteStorage:
             )
             for row in cursor:
                 minute_of_day = row[0]
-                process_name = row[1] or '其他'
+                process_name = row[1] or '未知'
                 is_active = row[2]
                 
                 if is_active and minute_of_day < day_start_hour * 60:
@@ -246,7 +246,7 @@ class SQLiteStorage:
             )
             for row in cursor:
                 minute_of_day = row[0]
-                window_title = row[1] or '其他'
+                window_title = row[1] or '未知'
                 is_active = row[2]
                 
                 if is_active:
@@ -265,7 +265,7 @@ class SQLiteStorage:
             )
             for row in cursor:
                 minute_of_day = row[0]
-                window_title = row[1] or '其他'
+                window_title = row[1] or '未知'
                 is_active = row[2]
                 
                 if is_active and minute_of_day >= day_start_hour * 60:
@@ -284,7 +284,7 @@ class SQLiteStorage:
             )
             for row in cursor:
                 minute_of_day = row[0]
-                window_title = row[1] or '其他'
+                window_title = row[1] or '未知'
                 is_active = row[2]
                 
                 if is_active and minute_of_day < day_start_hour * 60:
@@ -320,7 +320,7 @@ class SQLiteStorage:
             )
             for row in cursor:
                 minute_of_day = row[0]
-                process_name = row[1] or '其他'
+                process_name = row[1] or '未知'
                 is_active = row[2]
                 
                 if is_active:
@@ -341,7 +341,7 @@ class SQLiteStorage:
             )
             for row in cursor:
                 minute_of_day = row[0]
-                process_name = row[1] or '其他'
+                process_name = row[1] or '未知'
                 is_active = row[2]
                 
                 if is_active and minute_of_day >= day_start_hour * 60:
@@ -362,7 +362,7 @@ class SQLiteStorage:
             )
             for row in cursor:
                 minute_of_day = row[0]
-                process_name = row[1] or '其他'
+                process_name = row[1] or '未知'
                 is_active = row[2]
                 
                 if is_active and minute_of_day < day_start_hour * 60:
@@ -400,7 +400,7 @@ class SQLiteStorage:
             )
             for row in cursor:
                 minute_of_day = row[0]
-                window_title = row[1] or '其他'
+                window_title = row[1] or '未知'
                 is_active = row[2]
                 
                 if is_active:
@@ -421,7 +421,7 @@ class SQLiteStorage:
             )
             for row in cursor:
                 minute_of_day = row[0]
-                window_title = row[1] or '其他'
+                window_title = row[1] or '未知'
                 is_active = row[2]
                 
                 if is_active and minute_of_day >= day_start_hour * 60:
@@ -442,7 +442,7 @@ class SQLiteStorage:
             )
             for row in cursor:
                 minute_of_day = row[0]
-                window_title = row[1] or '其他'
+                window_title = row[1] or '未知'
                 is_active = row[2]
                 
                 if is_active and minute_of_day < day_start_hour * 60:

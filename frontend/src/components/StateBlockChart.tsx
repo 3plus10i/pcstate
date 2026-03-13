@@ -2,9 +2,10 @@ import { useEffect, useRef } from 'react'
 import * as echarts from 'echarts'
 
 interface StateBlockChartProps {
-  slots: number[]
+  values: number[]
   size?: number
   dayStartHour?: number
+  showLabels?: boolean
 }
 
 const COLORS = ['#eee', '#cce5ff', '#99ccff', '#66b2ff', '#3399ff', '#007bff']
@@ -14,21 +15,36 @@ const SIZE = 16
 const GAP = 1.5
 const PADDING = 10
 
-export function StateBlockChart({ slots, size = SIZE, dayStartHour = 0 }: StateBlockChartProps) {
+function calculatePositions(count: number, size: number, gap: number, isHour: boolean): number[] {
+  const positions = [0]
+  let acc = size
+  for (let i = 1; i < count; i++) {
+    const g = isHour ? (i % 3 === 0 ? gap * 2 : gap) : (i % 4 === 0 ? gap * 4 : gap)
+    acc += g
+    positions[i] = acc
+    acc += size
+  }
+  return positions
+}
+
+function getTimeDisplay(row: number, col: number, dayStartHour: number): string {
+  const actualHour = (row + dayStartHour) % 24
+  const isNextDay = row >= (24 - dayStartHour) && dayStartHour > 0
+  const startMin = col * 5
+  const endMin = startMin + 5
+  const timeLabel = `${String(actualHour).padStart(2, '0')}:${String(startMin).padStart(2, '0')}-${String(actualHour).padStart(2, '0')}:${String(endMin).padStart(2, '0')}`
+  return isNextDay ? `${timeLabel} (次日)` : timeLabel
+}
+
+function formatHourLabel(row: number, dayStartHour: number): string {
+  const actualHour = (row + dayStartHour) % 24
+  const isNextDay = row >= (24 - dayStartHour) && dayStartHour > 0
+  return isNextDay ? `${actualHour}时*` : `${actualHour}时`
+}
+
+export function StateBlockChart({ values, size = SIZE, dayStartHour = 0, showLabels = true }: StateBlockChartProps) {
   const chartRef = useRef<HTMLDivElement>(null)
   const chartInstanceRef = useRef<echarts.ECharts | null>(null)
-
-  const calculatePositions = (count: number, size: number, gap: number, isHour: boolean): number[] => {
-    const positions = [0]
-    let acc = size
-    for (let i = 1; i < count; i++) {
-      const g = isHour ? (i % 3 === 0 ? gap * 2 : gap) : (i % 4 === 0 ? gap * 4 : gap)
-      acc += g
-      positions[i] = acc
-      acc += size
-    }
-    return positions
-  }
 
   useEffect(() => {
     if (!chartRef.current) return
@@ -48,16 +64,7 @@ export function StateBlockChart({ slots, size = SIZE, dayStartHour = 0 }: StateB
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) {
         const idx = r * COLS + c
-        const val = Math.min(slots[idx] || 0, 5)
-        
-        // 计算实际时间
-        const actualHour = (r + dayStartHour) % 24
-        const isNextDay = r >= (24 - dayStartHour) && dayStartHour > 0
-        const startMin = c * 5
-        const endMin = startMin + 5
-        const timeStr = isNextDay 
-          ? `${String(actualHour).padStart(2, '0')}:${String(startMin).padStart(2, '0')}-${String(actualHour).padStart(2, '0')}:${String(endMin).padStart(2, '0')} (次日)`
-          : `${String(actualHour).padStart(2, '0')}:${String(startMin).padStart(2, '0')}-${String(actualHour).padStart(2, '0')}:${String(endMin).padStart(2, '0')}`
+        const val = Math.min(values[idx] || 0, 5)
 
         data.push({
           x: PADDING + cellX[c],
@@ -65,9 +72,7 @@ export function StateBlockChart({ slots, size = SIZE, dayStartHour = 0 }: StateB
           width: size,
           height: size,
           value: val,
-          row: r,
-          col: c,
-          timeStr: timeStr
+          timeStr: getTimeDisplay(r, c, dayStartHour)
         })
       }
     }
@@ -153,7 +158,7 @@ export function StateBlockChart({ slots, size = SIZE, dayStartHour = 0 }: StateB
     return () => {
       window.removeEventListener('resize', handleResize)
     }
-  }, [slots, size, dayStartHour])
+  }, [values, size, dayStartHour])
 
   const cellX = calculatePositions(COLS, size, GAP, true)
   const cellY = calculatePositions(ROWS, size, GAP, false)
@@ -161,12 +166,51 @@ export function StateBlockChart({ slots, size = SIZE, dayStartHour = 0 }: StateB
   const chartHeight = cellY[ROWS - 1] + size + PADDING * 2
 
   return (
-    <div
-      ref={chartRef}
-      style={{
-        width: chartWidth,
-        height: chartHeight
-      }}
-    />
+    <div style={{ position: 'relative', marginLeft: showLabels ? 44 : 0, marginTop: showLabels ? 24 : 0 }}>
+      {showLabels && (
+        <>
+          {/* 顶部时间标签 */}
+          {[0, 3, 6, 9].map(col => {
+            return (
+              <div key={col} style={{
+                position: 'absolute',
+                top: -20,
+                left: PADDING + cellX[col],
+                fontSize: 11,
+                color: 'rgba(0,0,0,0.45)',
+                transform: 'translateX(-50%)',
+                whiteSpace: 'nowrap'
+              }}>
+                {col * 5}分
+              </div>
+            )
+          })}
+
+          {/* 左侧时间标签 */}
+          {[0, 4, 8, 12, 16, 20, 23].map(row => (
+            <div key={row} style={{
+              position: 'absolute',
+              left: -40,
+              top: PADDING + cellY[row] + 8,
+              fontSize: 11,
+              color: 'rgba(0,0,0,0.45)',
+              textAlign: 'right',
+              width: 32,
+              transform: 'translateY(-50%)'
+            }}>
+              {formatHourLabel(row, dayStartHour)}
+            </div>
+          ))}
+        </>
+      )}
+
+      <div
+        ref={chartRef}
+        style={{
+          width: chartWidth,
+          height: chartHeight
+        }}
+      />
+    </div>
   )
 }

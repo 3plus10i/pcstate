@@ -5,6 +5,15 @@ interface AppPieChartProps {
   appData: Record<string, number>
 }
 
+function formatTooltipMinutes(minutes: number): string {
+  if (minutes >= 60) {
+    const hours = Math.floor(minutes / 60)
+    const mins = minutes % 60
+    return `${hours}h ${mins}m `
+  }
+  return `${minutes}分钟`
+}
+
 export function AppPieChart({ appData }: AppPieChartProps) {
   const chartRef = useRef<HTMLDivElement>(null)
   const chartInstanceRef = useRef<echarts.ECharts | null>(null)
@@ -99,8 +108,9 @@ export function AppPieChart({ appData }: AppPieChartProps) {
         },
         padding: [8, 12],
         formatter: (params: any) => {
-          const item = params
-          return `${item.name}：${item.value}分钟 (${item.percentage.toFixed(1)}%)`
+          const percent = params.percent
+          const timeStr = formatTooltipMinutes(params.value)
+          return `${params.name}：${timeStr} (${percent}%)`
         }
       },
       legend: {
