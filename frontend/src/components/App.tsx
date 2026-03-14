@@ -3,7 +3,6 @@ import { subDays, format } from 'date-fns'
 import { StateBlockChart } from './StateBlockChart'
 import { AppPieChart } from './AppPieChart'
 import { AppStackedBarChart } from './AppStackedBarChart'
-import { WindowStackedBarChart } from './WindowStackedBarChart'
 import { useReportState } from '../hooks/useReportState'
 import { PcStateData } from '../dataProcessor'
 import DatePicker from 'react-datepicker'
@@ -91,10 +90,8 @@ export function App() {
 
   const values = processedData?.slots || []
   const appHourly = processedData?.appHourly || []
-  const windowHourly = processedData?.windowHourly || []
   const appData = processedData?.appTotals || {}
   const hourlyAppData = appHourly
-  const hourlyWindowData = windowHourly
   const dayStartHour = pcStateData?.day_start_hour || 0
   const hasData = (processedData?.slots?.filter(v => v > 0).length || 0) > 0
 
@@ -345,18 +342,7 @@ export function App() {
                 >
                   应用时长堆叠柱状图
                 </div>
-                <div
-                  onClick={() => setChartType('windowStack')}
-                  style={{
-                    padding: '8px 12px',
-                    cursor: 'pointer',
-                    background: chartType === 'windowStack' ? '#1890ff' : 'transparent',
-                    color: chartType === 'windowStack' ? '#fff' : 'rgba(0,0,0,0.45)',
-                    borderTop: '1px solid #e8e8e8'
-                  }}
-                >
-                  窗口时长堆叠柱状图
-                </div>
+
               </div>
             </div>
           </div>
@@ -392,11 +378,6 @@ export function App() {
                   {chartType === 'appStack' && (
                     <div style={{ width: '100%', padding: '20px' }}>
                       <AppStackedBarChart hourlyAppData={hourlyAppData} dayStartHour={dayStartHour} />
-                    </div>
-                  )}
-                  {chartType === 'windowStack' && (
-                    <div style={{ width: '100%', padding: '20px' }}>
-                      <WindowStackedBarChart hourlyWindowData={hourlyWindowData} dayStartHour={dayStartHour} />
                     </div>
                   )}
                 </>

@@ -14,7 +14,6 @@ export interface PcStateData {
 export interface ProcessedRecord {
   slots: number[]
   appHourly: Record<string, number>[]  // 合并后的活动应用数据
-  windowHourly: Record<string, number>[]  // 保留的原始窗口数据
   appTotals: Record<string, number>  // 基于活动应用的总时长
 }
 
@@ -103,7 +102,7 @@ function calculateAppTotals(appHourly: Record<string, number>[]): Record<string,
   return processAppNames(totals)
 }
 
-export function getSlotValue(data: PcStateData, date: Date): ProcessedRecord {
+export function getProcessedRecord(data: PcStateData, date: Date): ProcessedRecord {
   const dayStartHour = data.day_start_hour || 0
   
   // 1. 找到D日的记录
@@ -147,7 +146,6 @@ export function getSlotValue(data: PcStateData, date: Date): ProcessedRecord {
   return {
     slots,
     appHourly: mergedAppHourly,  // 使用合并后的数据
-    windowHourly,                // 保留原始窗口数据（可能用于调试）
     appTotals
   }
 }

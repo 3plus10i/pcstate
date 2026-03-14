@@ -1,9 +1,9 @@
 // src/hooks/useReportState.ts
 import { useState, useMemo, useCallback } from 'react'
-import { getSlotValue, getDateInfo, PcStateData } from '../dataProcessor'
+import { getProcessedRecord, getDateInfo, PcStateData } from '../dataProcessor'
 
 type ViewMode = 'day' | 'week' | 'month'
-type ChartType = 'mosaic' | 'appPie' | 'appStack' | 'windowStack'
+type ChartType = 'mosaic' | 'appPie' | 'appStack'
 
 interface ChartDescription {
   main: string
@@ -18,7 +18,7 @@ interface ReportState {
   selectedDate: Date
   
   // 派生数据（计算得到）
-  processedData: ReturnType<typeof getSlotValue> | null
+  processedData: ReturnType<typeof getProcessedRecord> | null
   chartTitle: string
   chartDescription: ChartDescription
   
@@ -39,7 +39,7 @@ export function useReportState(pcStateData: PcStateData): ReportState {
   // 2. 派生数据：图表数据
   const processedData = useMemo(() => {
     if (!pcStateData) return null
-    return getSlotValue(pcStateData, selectedDate)
+    return getProcessedRecord(pcStateData, selectedDate)
   }, [pcStateData, selectedDate])
 
   // 3. 派生数据：活跃时间统计
@@ -57,8 +57,7 @@ export function useReportState(pcStateData: PcStateData): ReportState {
     const chartTypeName = {
       mosaic: '马赛克图',
       appPie: '应用时长饼图',
-      appStack: '应用时长堆叠柱状图',
-      windowStack: '窗口时长堆叠柱状图'
+      appStack: '应用时长堆叠柱状图'
     }[chartType]
     
     return `${getDateInfo(selectedDate)} - ${chartTypeName}`
@@ -97,12 +96,6 @@ export function useReportState(pcStateData: PcStateData): ReportState {
       case 'appStack':
         return {
           main: '应用时长堆叠柱状图：显示每个小时内不同应用的活跃时长，堆叠显示便于对比。每小时内显示时长前5的应用，其余合并到"其他"。',
-          timeInfo
-        }
-      
-      case 'windowStack':
-        return {
-          main: '窗口时长堆叠柱状图：显示每个小时内不同窗口的活跃时长，堆叠显示便于对比。',
           timeInfo
         }
     }
