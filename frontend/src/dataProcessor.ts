@@ -17,6 +17,20 @@ export interface ProcessedRecord {
   appTotals: Record<string, number>  // 基于活动应用的总时长
 }
 
+export interface ProcessedWeekRecord {
+  hourlyActivity: number[][]  // 7×24矩阵，每小时的活跃分钟数(0-60)
+  weekAppTotals: Record<string, number>  // 7天总应用时长
+  hourlyAppData: Record<string, number>[][]  // 7×24的应用时长矩阵
+  days: string[]  // 7天的日期字符串
+}
+
+interface DayRecord {
+  date: string
+  slots?: number[]
+  app_hourly?: Record<string, number>[]
+  window_hourly?: Record<string, number>[]
+}
+
 function removeExeSuffix(appName: string): string {
   if (appName && appName.toLowerCase().endsWith('.exe')) {
     return appName.slice(0, -4)
@@ -180,4 +194,142 @@ export function formatDuration(minutes: number): string {
     return `${h}h${m}m`
   }
   return `${minutes}min`
+}
+
+function getHourlyActivityFromSlots(slots: number[], dayStartHour: number): number[] {
+  // slots是288个槽位（每5分钟一个），值0-5
+  // 需要转换为24小时的活跃分钟数（0-60）
+  const hourlyActivity = new Array(24).fill(0)
+  
+  for (let hour = 0; hour < 24; hour++) {
+    const slotStart = hour * 12
+    const slotEnd = (hour + 1) * 12
+    let totalActivity = 0
+    
+    for (let slot = slotStart; slot < slotEnd && slot < slots.length; slot++) {
+      // 每个槽位最多5次活跃，每次5分钟，所以最大25分钟
+      // 为了归一化到0-60分钟，乘以5
+      totalActivity += (slots[slot] || 0) * 5
+    }
+    
+    hourlyActivity[hour] = Math.min(totalActivity, 60)
+  }
+  
+  return hourlyActivity
+}
+
+function getDayRecord(data: PcStateData, date: Date): DayRecord | null {
+  const dateStr = formatDateToYYYYMMDD(date)
+  const record = data.record.find(r => r.date === dateStr)
+  return record || null
+}
+
+function getAdjustedHourlyData(record: DayRecord | null, dayStartHour: number): Record<string, number>[] {
+  if (!record) return new Array(24).fill({})
+  
+  // 处理应用和窗口数据
+  const appHourly = processHourlyData(record.app_hourly || [])
+  const windowHourly = processHourlyData(record.window_hourly || [])
+  const merged = mergeHourlyData(appHourly, windowHourly)
+  
+  // 如果dayStartHour > 0，需要调整数据顺序
+  if (dayStartHour > 0) {
+    const adjusted = [...merged.slice(dayStartHour), ...merged.slice(0, dayStartHour)]
+    return adjusted
+  }
+  
+  return merged
+}
+
+export function getProcessedWeekRecord(data: PcStateData, endDate: Date): ProcessedWeekRecord {
+  const dayStartHour = data.day_start_hour || 0
+  const days: string[] = []
+  const hourlyActivity: number[][] = []  // 7×24矩阵
+  const hourlyAppData: Record<string, number>[][] = []  // 7×24的应用数据
+  const appTotals: Record<string, number> = {}
+  
+  // 计算7天的数据（D-6到D）
+  for (let i = 6; i >= 0; i--) {
+    const currentDate = new Date(endDate)
+    currentDate.setDate(currentDate.getDate() - i)
+    
+    const dateStr = formatDateToYYYYMMDD(currentDate)
+    days.push(dateStr)
+    
+    const record = getDayRecord(data, currentDate)
+    
+    // 1. 计算每小时的活跃度
+    const slots = record?.slots || new Array(288).fill(0)
+    const dayHourlyActivity = getHourlyActivityFromSlots(slots, dayStartHour)
+    hourlyActivity.push(dayHourlyActivity)
+    
+    // 2. 获取每小时的应用数据
+    const dayHourlyApps = getAdjustedHourlyData(record, dayStartHour)
+    hourlyAppData.push(dayHourlyApps)
+    
+    // 3. 累加应用总时长
+    dayHourlyApps.forEach(hourData => {
+      Object.entries(hourData).forEach(([app, minutes]) => {
+        appTotals[app] = (appTotals[app] || 0) + minutes
+      })
+    })
+  }
+  
+  // 处理占比<5%的应用，合并为"其他"
+  const totalMinutes = Object.values(appTotals).reduce((sum, m) => sum + m, 0)
+  const weekAppTotals: Record<string, number> = {}
+  let otherMinutes = 0
+  
+  Object.entries(appTotals).forEach(([app, minutes]) => {
+    const percentage = totalMinutes > 0 ? minutes / totalMinutes : 0
+    if (percentage < 0.05) {
+      otherMinutes += minutes
+    } else {
+      weekAppTotals[app] = minutes
+    }
+  })
+  
+  if (otherMinutes > 0) {
+    weekAppTotals['其他'] = otherMinutes
+  }
+  
+  return {
+    hourlyActivity,
+    weekAppTotals,
+    hourlyAppData,
+    days
+  }
+}
+
+export function mergeSmallApps(hourlyData: Record<string, number>[], appTotals: Record<string, number>): Record<string, number>[] {
+  const totalMinutes = Object.values(appTotals).reduce((sum, m) => sum + m, 0)
+  const smallApps = new Set<string>()
+  
+  // 找出占比<5%的应用
+  Object.entries(appTotals).forEach(([app, minutes]) => {
+    const percentage = totalMinutes > 0 ? minutes / totalMinutes : 0
+    if (percentage < 0.05) {
+      smallApps.add(app)
+    }
+  })
+  
+  // 合并小应用
+  return hourlyData.map(hourData => {
+    const merged: Record<string, number> = {}
+    let otherMinutes = 0
+    
+    Object.entries(hourData).forEach(([app, minutes]) => {
+      if (smallApps.has(app)) {
+        otherMinutes += minutes
+      } else {
+        merged[app] = minutes
+      }
+    })
+    
+    if (otherMinutes > 0) {
+      merged['其他'] = (merged['其他'] || 0) + otherMinutes
+    }
+    
+    return merged
+  })
 }

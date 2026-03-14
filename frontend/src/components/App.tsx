@@ -3,6 +3,9 @@ import { subDays, format } from 'date-fns'
 import { HeatmapChart } from './HeatmapChart'
 import { AppPieChart } from './AppPieChart'
 import { AppBarChart } from './AppBarChart'
+import { WeeklyHeatmapChartBlock } from './WeeklyHeatmapChartBlock'
+import { WeeklyAppPieChart } from './WeeklyAppPieChart'
+import { WeeklyAppBarChart } from './WeeklyAppBarChart'
 import { useReportState } from '../hooks/useReportState'
 import { PcStateData } from '../dataProcessor'
 import DatePicker from 'react-datepicker'
@@ -28,6 +31,7 @@ export function App() {
     chartType,
     selectedDate,
     processedData,
+    processedWeekData,
     chartTitle,
     chartDescription,
     setViewMode,
@@ -93,7 +97,16 @@ export function App() {
   const appData = processedData?.appTotals || {}
   const hourlyAppData = appHourly
   const dayStartHour = pcStateData?.day_start_hour || 0
-  const hasData = (processedData?.slots?.filter(v => v > 0).length || 0) > 0
+  
+  // 周视图数据
+  const weekHourlyActivity = processedWeekData?.hourlyActivity || []
+  const weekAppTotals = processedWeekData?.weekAppTotals || {}
+  const weekHourlyAppData = processedWeekData?.hourlyAppData || []
+  const weekDays = processedWeekData?.days || []
+  
+  const hasData = viewMode === 'week' 
+    ? (weekHourlyActivity.some(day => day.some(h => h > 0)))
+    : ((processedData?.slots?.filter(v => v > 0).length || 0) > 0)
 
   return (
     <div style={{ padding: '40px 20px', minHeight: '100vh', background: '#f0f2f5' }}>
@@ -146,7 +159,10 @@ export function App() {
                 overflow: 'hidden'
               }}>
                 <div
-                  onClick={() => setViewMode('day')}
+                  onClick={() => {
+                    setViewMode('day')
+                    setChartType('heatmap')
+                  }}
                   style={{
                     padding: '8px 12px',
                     cursor: 'pointer',
@@ -158,7 +174,10 @@ export function App() {
                   日视图
                 </div>
                 <div
-                  onClick={() => setViewMode('week')}
+                  onClick={() => {
+                    setViewMode('week')
+                    setChartType('weekHeatmap')
+                  }}
                   style={{
                     padding: '8px 12px',
                     cursor: 'pointer',
@@ -307,41 +326,85 @@ export function App() {
                 border: '1px solid #d9d9d9',
                 overflow: 'hidden'
               }}>
-                <div
-                  onClick={() => setChartType('heatmap')}
-                  style={{
-                    padding: '8px 12px',
-                    cursor: 'pointer',
-                    background: chartType === 'heatmap' ? '#1890ff' : 'transparent',
-                    color: chartType === 'heatmap' ? '#fff' : 'rgba(0,0,0,0.45)'
-                  }}
-                >
-                  活跃热力图
-                </div>
-                <div
-                  onClick={() => setChartType('appPie')}
-                  style={{
-                    padding: '8px 12px',
-                    cursor: 'pointer',
-                    background: chartType === 'appPie' ? '#1890ff' : 'transparent',
-                    color: chartType === 'appPie' ? '#fff' : 'rgba(0,0,0,0.45)',
-                    borderTop: '1px solid #e8e8e8'
-                  }}
-                >
-                  应用时长饼图
-                </div>
-                <div
-                  onClick={() => setChartType('bar')}
-                  style={{
-                    padding: '8px 12px',
-                    cursor: 'pointer',
-                    background: chartType === 'bar' ? '#1890ff' : 'transparent',
-                    color: chartType === 'bar' ? '#fff' : 'rgba(0,0,0,0.45)',
-                    borderTop: '1px solid #e8e8e8'
-                  }}
-                >
-                  应用时长柱状图
-                </div>
+                {viewMode === 'day' && (
+                  <>
+                    <div
+                      onClick={() => setChartType('heatmap')}
+                      style={{
+                        padding: '8px 12px',
+                        cursor: 'pointer',
+                        background: chartType === 'heatmap' ? '#1890ff' : 'transparent',
+                        color: chartType === 'heatmap' ? '#fff' : 'rgba(0,0,0,0.45)'
+                      }}
+                    >
+                      活跃热力图
+                    </div>
+                    <div
+                      onClick={() => setChartType('appPie')}
+                      style={{
+                        padding: '8px 12px',
+                        cursor: 'pointer',
+                        background: chartType === 'appPie' ? '#1890ff' : 'transparent',
+                        color: chartType === 'appPie' ? '#fff' : 'rgba(0,0,0,0.45)',
+                        borderTop: '1px solid #e8e8e8'
+                      }}
+                    >
+                      应用时长饼图
+                    </div>
+                    <div
+                      onClick={() => setChartType('bar')}
+                      style={{
+                        padding: '8px 12px',
+                        cursor: 'pointer',
+                        background: chartType === 'bar' ? '#1890ff' : 'transparent',
+                        color: chartType === 'bar' ? '#fff' : 'rgba(0,0,0,0.45)',
+                        borderTop: '1px solid #e8e8e8'
+                      }}
+                    >
+                      应用时长柱状图
+                    </div>
+                  </>
+                )}
+                
+                {viewMode === 'week' && (
+                  <>
+                    <div
+                      onClick={() => setChartType('weekHeatmap')}
+                      style={{
+                        padding: '8px 12px',
+                        cursor: 'pointer',
+                        background: chartType === 'weekHeatmap' ? '#1890ff' : 'transparent',
+                        color: chartType === 'weekHeatmap' ? '#fff' : 'rgba(0,0,0,0.45)'
+                      }}
+                    >
+                      周热力图
+                    </div>
+                    <div
+                      onClick={() => setChartType('weekAppPie')}
+                      style={{
+                        padding: '8px 12px',
+                        cursor: 'pointer',
+                        background: chartType === 'weekAppPie' ? '#1890ff' : 'transparent',
+                        color: chartType === 'weekAppPie' ? '#fff' : 'rgba(0,0,0,0.45)',
+                        borderTop: '1px solid #e8e8e8'
+                      }}
+                    >
+                      周应用饼图
+                    </div>
+                    <div
+                      onClick={() => setChartType('weekBar')}
+                      style={{
+                        padding: '8px 12px',
+                        cursor: 'pointer',
+                        background: chartType === 'weekBar' ? '#1890ff' : 'transparent',
+                        color: chartType === 'weekBar' ? '#fff' : 'rgba(0,0,0,0.45)',
+                        borderTop: '1px solid #e8e8e8'
+                      }}
+                    >
+                      周应用柱状图
+                    </div>
+                  </>
+                )}
 
               </div>
             </div>
@@ -367,18 +430,49 @@ export function App() {
             <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
               {hasData ? (
                 <>
-                  {chartType === 'heatmap' && (
-                    <HeatmapChart values={values} dayStartHour={dayStartHour} showLabels={true} />
+                  {viewMode === 'day' && (
+                    <>
+                      {chartType === 'heatmap' && (
+                        <HeatmapChart values={values} dayStartHour={dayStartHour} showLabels={true} />
+                      )}
+                      {chartType === 'appPie' && (
+                        <div style={{ width: '100%', padding: '20px' }}>
+                          <AppPieChart appData={appData} />
+                        </div>
+                      )}
+                      {chartType === 'bar' && (
+                        <div style={{ width: '100%', padding: '20px' }}>
+                          <AppBarChart hourlyAppData={hourlyAppData} dayStartHour={dayStartHour} />
+                        </div>
+                      )}
+                    </>
                   )}
-                  {chartType === 'appPie' && (
-                    <div style={{ width: '100%', padding: '20px' }}>
-                      <AppPieChart appData={appData} />
-                    </div>
-                  )}
-                  {chartType === 'bar' && (
-                    <div style={{ width: '100%', padding: '20px' }}>
-                      <AppBarChart hourlyAppData={hourlyAppData} dayStartHour={dayStartHour} />
-                    </div>
+                  
+                  {viewMode === 'week' && (
+                    <>
+                      {chartType === 'weekHeatmap' && (
+                        <WeeklyHeatmapChartBlock 
+                          hourlyActivity={weekHourlyActivity} 
+                          days={weekDays} 
+                          dayStartHour={dayStartHour} 
+                        />
+                      )}
+                      {chartType === 'weekAppPie' && (
+                        <div style={{ width: '100%', padding: '20px' }}>
+                          <WeeklyAppPieChart weekAppTotals={weekAppTotals} />
+                        </div>
+                      )}
+                      {chartType === 'weekBar' && (
+                        <div style={{ width: '100%', padding: '20px' }}>
+                          <WeeklyAppBarChart 
+                            hourlyAppData={weekHourlyAppData}
+                            days={weekDays}
+                            weekAppTotals={weekAppTotals}
+                            dayStartHour={dayStartHour}
+                          />
+                        </div>
+                      )}
+                    </>
                   )}
                 </>
               ) : (
