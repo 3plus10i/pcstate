@@ -1,8 +1,8 @@
 export interface RecordItem {
   date: string
   slots: number[]
-  app_hourly: Record<string, number>[]
-  window_hourly: Record<string, number>[]
+  app_hourly: Record<string, number>[]  // 原始应用数据
+  window_hourly: Record<string, number>[]  // 原始窗口数据
 }
 
 export interface PcStateData {
@@ -13,9 +13,9 @@ export interface PcStateData {
 
 export interface ProcessedRecord {
   slots: number[]
-  appHourly: Record<string, number>[]
-  windowHourly: Record<string, number>[]
-  appTotals: Record<string, number>
+  appHourly: Record<string, number>[]  // 合并后的活动应用数据
+  windowHourly: Record<string, number>[]  // 保留的原始窗口数据
+  appTotals: Record<string, number>  // 基于活动应用的总时长
 }
 
 function removeExeSuffix(appName: string): string {
@@ -36,6 +36,54 @@ function processAppNames(data: Record<string, number>): Record<string, number> {
 
 function processHourlyData(data: Record<string, number>[]): Record<string, number>[] {
   return data.map(hourData => processAppNames(hourData))
+}
+
+/**
+ * 合并应用名和窗口标题为活动应用
+ * 规则：如果进程名为空或未知，则使用窗口标题
+ */
+function mergeAppAndWindowNames(appData: Record<string, number>, windowData: Record<string, number>): Record<string, number> {
+  const merged: Record<string, number> = { ...appData }
+  
+  // 遍历窗口数据，如果对应的应用名为空或未知，则使用窗口标题
+  Object.entries(windowData).forEach(([windowName, value]) => {
+    const cleanWindowName = removeExeSuffix(windowName)
+    
+    // 如果窗口标题有意义且应用名为空或未知，使用窗口标题
+    if (cleanWindowName && cleanWindowName !== '未知' && cleanWindowName.trim() !== '') {
+      // 查找是否有对应的应用名（可能需要模糊匹配）
+      let hasApp = false
+      
+      // 检查是否有非空、非未知的应用名
+      Object.keys(appData).forEach(appName => {
+        if (appName && appName !== '未知' && appName.trim() !== '') {
+          hasApp = true
+        }
+      })
+      
+      // 如果没有有效的应用名，使用窗口标题
+      if (!hasApp) {
+        merged[cleanWindowName] = (merged[cleanWindowName] || 0) + value
+      }
+    }
+  })
+  
+  return merged
+}
+
+/**
+ * 逐小时合并应用和窗口数据
+ */
+function mergeHourlyData(appHourly: Record<string, number>[], windowHourly: Record<string, number>[]): Record<string, number>[] {
+  const merged: Record<string, number>[] = []
+  
+  for (let i = 0; i < Math.max(appHourly.length, windowHourly.length); i++) {
+    const appData = appHourly[i] || {}
+    const windowData = windowHourly[i] || {}
+    merged.push(mergeAppAndWindowNames(appData, windowData))
+  }
+  
+  return merged
 }
 
 function formatDateToYYYYMMDD(date: Date): string {
@@ -90,12 +138,16 @@ export function getSlotValue(data: PcStateData, date: Date): ProcessedRecord {
   // 7. 处理应用名（去掉.exe后缀）
   const appHourly = processHourlyData(appHourlyRaw)
   const windowHourly = processHourlyData(windowHourlyRaw)
-  const appTotals = calculateAppTotals(appHourly)
+  
+  // 8. 合并应用和窗口数据为活动应用
+  // 规则：如果进程名为空或未知，则使用窗口标题
+  const mergedAppHourly = mergeHourlyData(appHourly, windowHourly)
+  const appTotals = calculateAppTotals(mergedAppHourly)
 
   return {
     slots,
-    appHourly,
-    windowHourly,
+    appHourly: mergedAppHourly,  // 使用合并后的数据
+    windowHourly,                // 保留原始窗口数据（可能用于调试）
     appTotals
   }
 }

@@ -172,8 +172,8 @@ def open_viewer():
     """打开数据检视页面"""
     try:
         # 导出数据
-        data_file, valid_days = export_data()
-        print(f"已生成数据: {valid_days} 天")
+        data_file = export_data()
+        print(f"已生成数据文件: {data_file}")
         
         # 获取页面文件
         html_path, _ = get_viewer_files()
