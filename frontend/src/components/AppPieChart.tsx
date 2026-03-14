@@ -96,7 +96,7 @@ export function AppPieChart({ appData }: AppPieChartProps) {
       title: {
         show: false
       },
-      animation: false,
+      animation: true,
       tooltip: {
         trigger: 'item',
         backgroundColor: '#fff',

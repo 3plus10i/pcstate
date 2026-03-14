@@ -196,34 +196,6 @@ export function formatDuration(minutes: number): string {
   return `${minutes}min`
 }
 
-function getHourlyActivityFromSlots(slots: number[], dayStartHour: number): number[] {
-  // slots是288个槽位（每5分钟一个），值0-5
-  // 需要转换为24小时的活跃分钟数（0-60）
-  const hourlyActivity = new Array(24).fill(0)
-  
-  for (let hour = 0; hour < 24; hour++) {
-    const slotStart = hour * 12
-    const slotEnd = (hour + 1) * 12
-    let totalActivity = 0
-    
-    for (let slot = slotStart; slot < slotEnd && slot < slots.length; slot++) {
-      // 每个槽位最多5次活跃，每次5分钟，所以最大25分钟
-      // 为了归一化到0-60分钟，乘以5
-      totalActivity += (slots[slot] || 0) * 5
-    }
-    
-    hourlyActivity[hour] = Math.min(totalActivity, 60)
-  }
-  
-  return hourlyActivity
-}
-
-function getDayRecord(data: PcStateData, date: Date): DayRecord | null {
-  const dateStr = formatDateToYYYYMMDD(date)
-  const record = data.record.find(r => r.date === dateStr)
-  return record || null
-}
-
 function getAdjustedHourlyData(record: DayRecord | null, dayStartHour: number): Record<string, number>[] {
   if (!record) return new Array(24).fill({})
   
@@ -241,6 +213,12 @@ function getAdjustedHourlyData(record: DayRecord | null, dayStartHour: number): 
   return merged
 }
 
+function getDayRecord(data: PcStateData, date: Date): DayRecord | null {
+  const dateStr = formatDateToYYYYMMDD(date)
+  const record = data.record.find(r => r.date === dateStr)
+  return record || null
+}
+
 export function getProcessedWeekRecord(data: PcStateData, endDate: Date): ProcessedWeekRecord {
   const dayStartHour = data.day_start_hour || 0
   const days: string[] = []
@@ -256,15 +234,50 @@ export function getProcessedWeekRecord(data: PcStateData, endDate: Date): Proces
     const dateStr = formatDateToYYYYMMDD(currentDate)
     days.push(dateStr)
     
-    const record = getDayRecord(data, currentDate)
+    // 对每一天，执行与日视图相同的数据拼接逻辑
+    const currentRecord = getDayRecord(data, currentDate)
     
-    // 1. 计算每小时的活跃度
-    const slots = record?.slots || new Array(288).fill(0)
-    const dayHourlyActivity = getHourlyActivityFromSlots(slots, dayStartHour)
+    // 获取次日数据（用于拼接）
+    const nextDate = new Date(currentDate)
+    nextDate.setDate(nextDate.getDate() + 1)
+    const nextRecord = getDayRecord(data, nextDate)
+    
+      // 1. 处理slots（活跃度）
+    const part1Start = dayStartHour * 12
+    const part1Slots = currentRecord?.slots?.slice(part1Start, 288) || new Array(288 - part1Start).fill(0)
+    const part2End = dayStartHour * 12
+    const part2Slots = nextRecord?.slots?.slice(0, part2End) || new Array(part2End).fill(0)
+    const daySlots = [...part1Slots, ...part2Slots]
+    
+    // 将slots转换为每小时的活跃度（0-60分钟）
+    // 注意：slots中的值本身就是活跃分钟数(0-5)，直接求和即可
+    const dayHourlyActivity: number[] = []
+    for (let hour = 0; hour < 24; hour++) {
+      const slotStart = hour * 12
+      const slotEnd = (hour + 1) * 12
+      let totalActivity = 0
+      
+      for (let slot = slotStart; slot < slotEnd && slot < daySlots.length; slot++) {
+        totalActivity += (daySlots[slot] || 0)  // 值本身就是分钟数
+      }
+      
+      dayHourlyActivity.push(Math.min(totalActivity, 60))
+    }
     hourlyActivity.push(dayHourlyActivity)
     
-    // 2. 获取每小时的应用数据
-    const dayHourlyApps = getAdjustedHourlyData(record, dayStartHour)
+    // 2. 处理应用数据
+    const part1AppHourly = (currentRecord?.app_hourly || []).slice(dayStartHour, 24)
+    const part2AppHourly = (nextRecord?.app_hourly || []).slice(0, dayStartHour)
+    const rawAppHourly = [...part1AppHourly, ...part2AppHourly]
+    
+    const part1WindowHourly = (currentRecord?.window_hourly || []).slice(dayStartHour, 24)
+    const part2WindowHourly = (nextRecord?.window_hourly || []).slice(0, dayStartHour)
+    const rawWindowHourly = [...part1WindowHourly, ...part2WindowHourly]
+    
+    const dayHourlyApps = mergeHourlyData(
+      processHourlyData(rawAppHourly),
+      processHourlyData(rawWindowHourly)
+    )
     hourlyAppData.push(dayHourlyApps)
     
     // 3. 累加应用总时长

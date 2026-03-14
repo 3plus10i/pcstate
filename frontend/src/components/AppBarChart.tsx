@@ -140,7 +140,7 @@ export function AppBarChart({ hourlyAppData, dayStartHour }: AppBarChartProps) {
       title: {
         show: false
       },
-      animation: false,
+      animation: true,
       tooltip: {
         trigger: 'axis',
         axisPointer: {

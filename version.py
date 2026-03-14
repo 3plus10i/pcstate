@@ -5,7 +5,7 @@
 
 # ============ 版本信息 ============
 
-VERSION_PARTS = (1, 7, 0, 0)
+VERSION_PARTS = (1, 7, 1, 0)
 VERSION = ".".join(map(str, VERSION_PARTS))
 
 COMPANY_NAME = "3plus10i"

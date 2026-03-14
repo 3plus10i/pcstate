@@ -3,7 +3,7 @@ import { subDays, format } from 'date-fns'
 import { HeatmapChart } from './HeatmapChart'
 import { AppPieChart } from './AppPieChart'
 import { AppBarChart } from './AppBarChart'
-import { WeeklyHeatmapChartBlock } from './WeeklyHeatmapChartBlock'
+import { WeeklyHeatmapChart } from './WeeklyHeatmapChart'
 import { WeeklyAppPieChart } from './WeeklyAppPieChart'
 import { WeeklyAppBarChart } from './WeeklyAppBarChart'
 import { useReportState } from '../hooks/useReportState'
@@ -451,7 +451,7 @@ export function App() {
                   {viewMode === 'week' && (
                     <>
                       {chartType === 'weekHeatmap' && (
-                        <WeeklyHeatmapChartBlock 
+                        <WeeklyHeatmapChart 
                           hourlyActivity={weekHourlyActivity} 
                           days={weekDays} 
                           dayStartHour={dayStartHour} 
