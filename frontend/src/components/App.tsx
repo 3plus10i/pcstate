@@ -4,7 +4,7 @@ import { StateBlockChart } from './StateBlockChart'
 import { AppPieChart } from './AppPieChart'
 import { AppStackedBarChart } from './AppStackedBarChart'
 import { WindowStackedBarChart } from './WindowStackedBarChart'
-import { getSlotValue, getDateInfo } from '../dataProcessor'
+import { useReportState } from '../hooks/useReportState'
 import { PcStateData } from '../dataProcessor'
 import DatePicker from 'react-datepicker'
 import 'react-datepicker/dist/react-datepicker.css'
@@ -23,10 +23,21 @@ export function App() {
   }
   const version = pcStateData.version
 
-  const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('day')
-  const [chartType, setChartType] = useState<'mosaic' | 'appPie' | 'appStack' | 'windowStack'>('mosaic')
+  // 使用自定义 Hook 管理状态
+  const {
+    viewMode,
+    chartType,
+    selectedDate,
+    processedData,
+    chartTitle,
+    chartDescription,
+    setViewMode,
+    setChartType,
+    setSelectedDate,
+    goPrevDate,
+    goNextDate
+  } = useReportState(pcStateData)
 
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date())
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false)
 
   const minDate = subDays(new Date(), 30)
@@ -60,26 +71,6 @@ export function App() {
     }
   }, [isDatePickerOpen])
 
-  const processedData: ReturnType<typeof getSlotValue> | null = useMemo(() => {
-    if (!pcStateData) return null
-    return getSlotValue(pcStateData, selectedDate)
-  }, [pcStateData, selectedDate])
-
-  const values = processedData?.slots || []
-  const appHourly = processedData?.appHourly || []
-  const windowHourly = processedData?.windowHourly || []
-  const appData = processedData?.appTotals || {}
-  const hourlyAppData = appHourly
-  const hourlyWindowData = windowHourly
-
-  const activeSlots = values.filter(v => v > 0).length
-  const activeMinutes = activeSlots * 5
-  const activeHours = Math.floor(activeMinutes / 60)
-  const activeMins = activeMinutes % 60
-  const hasData = activeSlots > 0
-
-  const dayStartHour = pcStateData?.day_start_hour || 0
-
   const now = new Date()
   const generatedDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
 
@@ -98,21 +89,14 @@ export function App() {
     setIsDatePickerOpen(!isDatePickerOpen)
   }
 
-  const handlePrevDate = () => {
-    const newDate = new Date(normalizedSelectedDate)
-    newDate.setDate(newDate.getDate() - 1)
-    if (newDate >= minDate) {
-      setSelectedDate(newDate)
-    }
-  }
-
-  const handleNextDate = () => {
-    const newDate = new Date(normalizedSelectedDate)
-    newDate.setDate(newDate.getDate() + 1)
-    if (newDate <= maxDate) {
-      setSelectedDate(newDate)
-    }
-  }
+  const values = processedData?.slots || []
+  const appHourly = processedData?.appHourly || []
+  const windowHourly = processedData?.windowHourly || []
+  const appData = processedData?.appTotals || {}
+  const hourlyAppData = appHourly
+  const hourlyWindowData = windowHourly
+  const dayStartHour = pcStateData?.day_start_hour || 0
+  const hasData = (processedData?.slots?.filter(v => v > 0).length || 0) > 0
 
   return (
     <div style={{ padding: '40px 20px', minHeight: '100vh', background: '#f0f2f5' }}>
@@ -226,7 +210,7 @@ export function App() {
                   width: '100%'
                 }}>
                   <button
-                    onClick={handlePrevDate}
+                    onClick={goPrevDate}
                     disabled={!canGoPrev}
                     style={{
                       padding: '6px 12px',
@@ -283,7 +267,7 @@ export function App() {
                     )}
                   </div>
                   <button
-                    onClick={handleNextDate}
+                    onClick={goNextDate}
                     disabled={!canGoNext}
                     style={{
                       padding: '6px 12px',
@@ -390,12 +374,7 @@ export function App() {
               borderBottom: '1px solid #e8e8e8',
               textAlign: 'center'
             }}>
-              {getDateInfo(selectedDate)} - {
-                chartType === 'mosaic' ? '马赛克图' :
-                chartType === 'appPie' ? '应用时长饼图' :
-                chartType === 'appStack' ? '应用时长堆叠柱状图' :
-                '窗口时长堆叠柱状图'
-              }
+              {chartTitle}
             </div>
 
             {/* 图表主体 */}
@@ -443,70 +422,16 @@ export function App() {
               borderRadius: 4,
               lineHeight: 1.6
             }}>
-              {hasData ? (
+              {chartDescription.timeInfo ? (
                 <>
-                  {chartType === 'mosaic' && (
-                    <>
-                      <p>
-                        活跃马赛克图：每个小格表示5分钟，格子颜色越深表示越繁忙。
-                      </p>
-                      <p>
-                        {activeHours === 0
-                          ? `活跃时间${activeMins}分钟，已点亮${activeSlots}个小格`
-                          : `活跃时间${activeHours}小时${activeMins}分钟，已点亮${activeSlots}个小格`
-                        }
-                      </p>
-                      {dayStartHour > 0 && (
-                        <p>
-                          当前一天起始时间：凌晨{dayStartHour}时（带*号表示次日时间）
-                        </p>
-                      )}
-                    </>
-                  )}
-                  {chartType === 'appPie' && (
-                    <>
-                      <p>
-                        应用时长饼图：展示不同应用的活跃时长占比，5%以上有图例，5%以下合并到"其他"。
-                      </p>
-                      <p>
-                        {activeHours === 0
-                          ? `活跃时间${activeMins}分钟`
-                          : `活跃时间${activeHours}小时${activeMins}分钟`
-                        }
-                      </p>
-                    </>
-                  )}
-                  {chartType === 'appStack' && (
-                    <>
-                      <p>
-                        应用时长堆叠柱状图：显示每个小时内不同应用的活跃时长，堆叠显示便于对比。每小时内显示时长前5的应用，其余合并到"其他"。
-                      </p>
-                      <p>
-                        {activeHours === 0
-                          ? `活跃时间${activeMins}分钟`
-                          : `活跃时间${activeHours}小时${activeMins}分钟`
-                        }
-                      </p>
-                    </>
-                  )}
-                  {chartType === 'windowStack' && (
-                    <>
-                      <p>
-                        窗口时长堆叠柱状图：显示每个小时内不同窗口的活跃时长，堆叠显示便于对比。
-                      </p>
-                      <p>
-                        {activeHours === 0
-                          ? `活跃时间${activeMins}分钟`
-                          : `活跃时间${activeHours}小时${activeMins}分钟`
-                        }
-                      </p>
-                    </>
+                  <p>{chartDescription.main}</p>
+                  <p>{chartDescription.timeInfo}</p>
+                  {chartDescription.additional && (
+                    <p>{chartDescription.additional}</p>
                   )}
                 </>
               ) : (
-                <p>
-                  暂无数据记录，请稍后再试。
-                </p>
+                <p>{chartDescription.main}</p>
               )}
             </div>
           </div>
