@@ -99,7 +99,7 @@ function mergeHourlyData(appHourly: Record<string, number>[], windowHourly: Reco
   return merged
 }
 
-function formatDateToYYYYMMDD(date: Date): string {
+export function formatDateToYYYYMMDD(date: Date): string {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')

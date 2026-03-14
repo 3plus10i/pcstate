@@ -110,7 +110,7 @@ export function App() {
 
   return (
     <div style={{ padding: '40px 20px', minHeight: '100vh', background: '#f0f2f5' }}>
-      <div style={{ maxWidth: 1000, margin: '0 auto' }}>
+      <div style={{ maxWidth: '80vw', margin: '0 auto' }}>
         {/* 顶部标题栏 */}
         <div style={{
           background: '#fff',
@@ -433,7 +433,7 @@ export function App() {
                   {viewMode === 'day' && (
                     <>
                       {chartType === 'heatmap' && (
-                        <HeatmapChart values={values} dayStartHour={dayStartHour} showLabels={true} />
+                        <HeatmapChart values={values} dayStartHour={dayStartHour} showLabels={true} selectedDate={selectedDate} />
                       )}
                       {chartType === 'appPie' && (
                         <div style={{ width: '100%', padding: '20px' }}>

@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react'
 import * as echarts from 'echarts'
-import { formatDateToYYYYMMDD } from '../dataProcessor'
+// import { formatDateToYYYYMMDD } from '../dataProcessor'
 
-interface WeeklyHeatmapChartProps {
+interface WeeklyHeatmapChartBlockProps {
   hourlyActivity: number[][]  // 7×24矩阵
   days: string[]  // 7天的日期字符串
   dayStartHour: number
@@ -34,12 +34,11 @@ function interpolateColor(startColor: string, endColor: string, steps: number): 
 }
 
 const COLORS = ['#eee', ...interpolateColor('#cce5ff', '#007bff', 60)]
-const BORDER_COLOR = COLORS[COLORS.length - 1]  // 最蓝的颜色
 const ROWS = 7  // 7天
 const COLS = 24  // 24小时
 const SIZE = 24
 const GAP = 2
-const PADDING = 16
+const PADDING = 10
 
 function calculatePositions(count: number, size: number, gap: number): number[] {
   const positions = [0]
@@ -59,7 +58,7 @@ function formatDateLabel(dateStr: string): string {
   return `${d.getMonth() + 1}/${d.getDate()}(${weekDays[d.getDay()]})`
 }
 
-export function WeeklyHeatmapChart({ hourlyActivity, days, dayStartHour }: WeeklyHeatmapChartProps) {
+export function WeeklyHeatmapChartBlock({ hourlyActivity, days, dayStartHour }: WeeklyHeatmapChartBlockProps) {
   const chartRef = useRef<HTMLDivElement>(null)
   const chartInstanceRef = useRef<echarts.ECharts | null>(null)
 
@@ -79,22 +78,6 @@ export function WeeklyHeatmapChart({ hourlyActivity, days, dayStartHour }: Weekl
 
     // 重要：hourlyActivity[day][hourIdx] 中，hourIdx=0 就是 dayStartHour 时
     // 不需要再像日热力图那样做小时转换，因为数据已经处理好了
-    
-    // 计算当前时间对应的格子（仅当显示的是本周时）
-    const now = new Date()
-    const currentDateStr = formatDateToYYYYMMDD(now)
-    const isInWeek = days.includes(currentDateStr)
-    
-    let currentDay = -1
-    let currentHour = -1
-    
-    if (isInWeek) {
-      currentDay = days.indexOf(currentDateStr)
-      const currentHourOfDay = now.getHours()
-      // 计算当前小时在dayStartHour调整后的索引
-      currentHour = (currentHourOfDay - dayStartHour + 24) % 24
-    }
-
     const data: any[] = []
     for (let day = 0; day < ROWS; day++) {
       for (let hourIdx = 0; hourIdx < COLS; hourIdx++) {
@@ -113,8 +96,7 @@ export function WeeklyHeatmapChart({ hourlyActivity, days, dayStartHour }: Weekl
           color: COLORS[colorIndex] || COLORS[COLORS.length - 1],
           day: days[day],
           hour: displayHour,
-          hourIndex: hourIdx,
-          isCurrent: isInWeek && day === currentDay && hourIdx === currentHour
+          hourIndex: hourIdx
         })
       }
     }
@@ -177,8 +159,6 @@ export function WeeklyHeatmapChart({ hourlyActivity, days, dayStartHour }: Weekl
             const w = api.size([dataItem.width, dataItem.height])[0]
             const h = api.size([dataItem.width, dataItem.height])[1]
 
-            const isCurrent = dataItem.isCurrent
-            
             return {
               type: 'rect',
               shape: {
@@ -186,12 +166,10 @@ export function WeeklyHeatmapChart({ hourlyActivity, days, dayStartHour }: Weekl
                 y: y - h / 2,
                 width: w,
                 height: h,
-                r: isCurrent ? SIZE / 2 : 2
+                r: 2
               },
               style: {
-                fill: dataItem.color,
-                lineWidth: isCurrent ? 1 : 0,
-                stroke: isCurrent ? BORDER_COLOR : undefined
+                fill: dataItem.color
               },
               name: `${dataItem.day}-${dataItem.hour}`
             }
@@ -217,11 +195,11 @@ export function WeeklyHeatmapChart({ hourlyActivity, days, dayStartHour }: Weekl
   const chartWidth = cellX[COLS - 1] + SIZE + PADDING * 2
   const chartHeight = cellY[ROWS - 1] + SIZE + PADDING * 2
 
-//   // 准备显示的小时顺序（从dayStartHour开始）
-//   const hours = Array.from({ length: 24 }, (_, i) => i)
-//   const displayHours = dayStartHour > 0 
-//     ? [...hours.slice(dayStartHour), ...hours.slice(0, dayStartHour)]
-//     : hours
+  // 准备显示的小时顺序（从dayStartHour开始）
+  const hours = Array.from({ length: 24 }, (_, i) => i)
+  const displayHours = dayStartHour > 0 
+    ? [...hours.slice(dayStartHour), ...hours.slice(0, dayStartHour)]
+    : hours
 
   return (
     <div style={{ position: 'relative', marginLeft: 60, marginTop: 24 }}>

@@ -175,9 +175,11 @@ class SQLiteStorage:
         return self._db_path
 
     def write(self, hour: int, minute: int, is_active: bool,
-              window_title: str = "", process_name: str = "") -> None:
+              window_title: str = "", process_name: str = "", target_date: date = None) -> None:
         
-        date_str = date.today().isoformat()
+        if target_date is None:
+            target_date = date.today()
+        date_str = target_date.isoformat()
         minute_of_day = hour * 60 + minute
 
         conn = sqlite3.connect(self._db_path)

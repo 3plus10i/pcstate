@@ -6,6 +6,7 @@ interface HeatmapChartProps {
   size?: number
   dayStartHour?: number
   showLabels?: boolean
+  selectedDate?: Date
 }
 
 function interpolateColor(startColor: string, endColor: string, steps: number): string[] {
@@ -34,6 +35,7 @@ function interpolateColor(startColor: string, endColor: string, steps: number): 
 }
 
 const COLORS = ['#eee', ...interpolateColor('#cce5ff', '#007bff', 5)]
+const BORDER_COLOR = COLORS[COLORS.length - 1]  // 最蓝的颜色
 const ROWS = 24
 const COLS = 12
 const SIZE = 16
@@ -67,7 +69,7 @@ function formatHourLabel(row: number, dayStartHour: number): string {
   return isNextDay ? `${actualHour}时*` : `${actualHour}时`
 }
 
-export function HeatmapChart({ values, size = SIZE, dayStartHour = 0, showLabels = true }: HeatmapChartProps) {
+export function HeatmapChart({ values, size = SIZE, dayStartHour = 0, showLabels = true, selectedDate }: HeatmapChartProps) {
   const chartRef = useRef<HTMLDivElement>(null)
   const chartInstanceRef = useRef<echarts.ECharts | null>(null)
 
@@ -85,6 +87,25 @@ export function HeatmapChart({ values, size = SIZE, dayStartHour = 0, showLabels
     const width = cellX[COLS - 1] + size + PADDING * 2
     const height = cellY[ROWS - 1] + size + PADDING * 2
 
+    // 计算当前时间对应的格子（仅当显示的是今天时）
+    const now = new Date()
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const compareDate = selectedDate || today
+    const isToday = now.toDateString() === compareDate.toDateString()
+    
+    let currentRow = -1
+    let currentCol = -1
+    
+    if (isToday) {
+      const currentHour = now.getHours()
+      const currentMinute = now.getMinutes()
+      
+      // 计算当前小时在dayStartHour调整后的行
+      currentRow = (currentHour - dayStartHour + 24) % 24
+      currentCol = Math.floor(currentMinute / 5)
+    }
+
     const data: any[] = []
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) {
@@ -97,7 +118,8 @@ export function HeatmapChart({ values, size = SIZE, dayStartHour = 0, showLabels
           width: size,
           height: size,
           value: val,
-          timeStr: getTimeDisplay(r, c, dayStartHour)
+          timeStr: getTimeDisplay(r, c, dayStartHour),
+          isCurrent: isToday && r === currentRow && c === currentCol
         })
       }
     }
@@ -154,6 +176,8 @@ export function HeatmapChart({ values, size = SIZE, dayStartHour = 0, showLabels
             const w = api.size([dataItem.width, dataItem.height])[0]
             const h = api.size([dataItem.width, dataItem.height])[1]
 
+            const isCurrent = dataItem.isCurrent
+            
             return {
               type: 'rect',
               shape: {
@@ -161,10 +185,12 @@ export function HeatmapChart({ values, size = SIZE, dayStartHour = 0, showLabels
                 y: y - h / 2,
                 width: w,
                 height: h,
-                r: 2
+                r: isCurrent ? SIZE / 2 : 2
               },
               style: {
-                fill: COLORS[dataItem.value]
+                fill: COLORS[dataItem.value],
+                lineWidth: isCurrent ? 1 : 0,
+                stroke: isCurrent ? BORDER_COLOR : undefined
               },
               name: dataItem.timeStr
             }

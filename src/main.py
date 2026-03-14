@@ -16,7 +16,7 @@ import win32api
 import win32gui
 import win32con
 
-from src import idle_detector, recorder, startup_manager, config
+from src import idle_detector, startup_manager, config
 from version import VERSION
 from src.exporter import export_data, get_viewer_files
 from src.utils import get_script_dir
@@ -203,7 +203,7 @@ def check_and_report():
         check_time = now - timedelta(minutes=1)
         from src.sqlite import SQLiteStorage
         backend = SQLiteStorage()
-        backend.write(check_time.hour, check_time.minute, is_active, window_title, process_name)
+        backend.write(check_time.hour, check_time.minute, is_active, window_title, process_name, check_time.date())
 
         if new_status != current_status:
             current_status = new_status
