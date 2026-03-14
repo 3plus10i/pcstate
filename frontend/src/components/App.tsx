@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { subDays, format } from 'date-fns'
-import { StateBlockChart } from './StateBlockChart'
+import { HeatmapChart } from './HeatmapChart'
 import { AppPieChart } from './AppPieChart'
-import { AppStackedBarChart } from './AppStackedBarChart'
+import { AppBarChart } from './AppBarChart'
 import { useReportState } from '../hooks/useReportState'
 import { PcStateData } from '../dataProcessor'
 import DatePicker from 'react-datepicker'
@@ -256,9 +256,9 @@ export function App() {
                           onChange={handleDateChange}
                           inline
                           showWeekNumbers
-                          includeDateIntervals={[
-                            { start: minDate, end: maxDate }
-                          ]}
+                          includeDateIntervals={[{
+                            start: minDate, end: maxDate
+                          }]}
                         />
                       </div>
                     )}
@@ -308,15 +308,15 @@ export function App() {
                 overflow: 'hidden'
               }}>
                 <div
-                  onClick={() => setChartType('mosaic')}
+                  onClick={() => setChartType('heatmap')}
                   style={{
                     padding: '8px 12px',
                     cursor: 'pointer',
-                    background: chartType === 'mosaic' ? '#1890ff' : 'transparent',
-                    color: chartType === 'mosaic' ? '#fff' : 'rgba(0,0,0,0.45)'
+                    background: chartType === 'heatmap' ? '#1890ff' : 'transparent',
+                    color: chartType === 'heatmap' ? '#fff' : 'rgba(0,0,0,0.45)'
                   }}
                 >
-                  活跃马赛克图
+                  活跃热力图
                 </div>
                 <div
                   onClick={() => setChartType('appPie')}
@@ -331,16 +331,16 @@ export function App() {
                   应用时长饼图
                 </div>
                 <div
-                  onClick={() => setChartType('appStack')}
+                  onClick={() => setChartType('bar')}
                   style={{
                     padding: '8px 12px',
                     cursor: 'pointer',
-                    background: chartType === 'appStack' ? '#1890ff' : 'transparent',
-                    color: chartType === 'appStack' ? '#fff' : 'rgba(0,0,0,0.45)',
+                    background: chartType === 'bar' ? '#1890ff' : 'transparent',
+                    color: chartType === 'bar' ? '#fff' : 'rgba(0,0,0,0.45)',
                     borderTop: '1px solid #e8e8e8'
                   }}
                 >
-                  应用时长堆叠柱状图
+                  应用时长柱状图
                 </div>
 
               </div>
@@ -367,17 +367,17 @@ export function App() {
             <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
               {hasData ? (
                 <>
-                  {chartType === 'mosaic' && (
-                    <StateBlockChart values={values} dayStartHour={dayStartHour} showLabels={true} />
+                  {chartType === 'heatmap' && (
+                    <HeatmapChart values={values} dayStartHour={dayStartHour} showLabels={true} />
                   )}
                   {chartType === 'appPie' && (
                     <div style={{ width: '100%', padding: '20px' }}>
                       <AppPieChart appData={appData} />
                     </div>
                   )}
-                  {chartType === 'appStack' && (
+                  {chartType === 'bar' && (
                     <div style={{ width: '100%', padding: '20px' }}>
-                      <AppStackedBarChart hourlyAppData={hourlyAppData} dayStartHour={dayStartHour} />
+                      <AppBarChart hourlyAppData={hourlyAppData} dayStartHour={dayStartHour} />
                     </div>
                   )}
                 </>

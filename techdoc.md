@@ -27,7 +27,7 @@ pcstate/
 │       ├── index.css
 │       └── components/
 │           ├── App.tsx           # 主界面
-│           └── StateBlockChart.tsx # 马赛克图组件
+│           └── HeatmapChart.tsx # 热力图组件
 ├── viewer/               # 前端构建输出(单文件输出)
 │   └── index.html
 └── public/               # 静态资源
@@ -199,11 +199,11 @@ npm run build  # 输出到 ../viewer/
 - 日期选择器
 - 活跃统计（小时/分钟）
 
-**布局**: 左侧日期列表 + 右侧马赛克图
+**布局**: 左侧日期列表 + 右侧热力图
 
-#### StateBlockChart.tsx
+#### HeatmapChart.tsx
 
-**功能**: ECharts 绘制马赛克图
+**功能**: ECharts 绘制热力图
 
 **参数**:
 - `slots`: 288个槽位的活跃计数 (0-5)
@@ -325,7 +325,7 @@ slot = hour * 12 + minute // 5  # 0-287
 slots[slot] = min(slots[slot] + 1, 5)  # 上限5次
 ```
 
-**用途**: 前端马赛克图渲染，颜色深浅表示活跃程度
+**用途**: 前端热力图渲染，颜色深浅表示活跃程度
 
 ---
 

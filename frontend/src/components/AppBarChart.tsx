@@ -5,12 +5,12 @@ interface HourlyDataItem {
   [key: string]: number
 }
 
-interface AppStackedBarChartProps {
+interface AppBarChartProps {
   hourlyAppData: HourlyDataItem[]
   dayStartHour: number
 }
 
-export function AppStackedBarChart({ hourlyAppData, dayStartHour }: AppStackedBarChartProps) {
+export function AppBarChart({ hourlyAppData, dayStartHour }: AppBarChartProps) {
   const chartRef = useRef<HTMLDivElement>(null)
   const chartInstanceRef = useRef<echarts.ECharts | null>(null)
 

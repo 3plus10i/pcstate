@@ -1,14 +1,39 @@
 import { useEffect, useRef } from 'react'
 import * as echarts from 'echarts'
 
-interface StateBlockChartProps {
+interface HeatmapChartProps {
   values: number[]
   size?: number
   dayStartHour?: number
   showLabels?: boolean
 }
 
-const COLORS = ['#eee', '#cce5ff', '#99ccff', '#66b2ff', '#3399ff', '#007bff']
+function interpolateColor(startColor: string, endColor: string, steps: number): string[] {
+  const hex2rgb = (hex: string) => ({
+    r: parseInt(hex.slice(1, 3), 16),
+    g: parseInt(hex.slice(3, 5), 16),
+    b: parseInt(hex.slice(5, 7), 16)
+  })
+  
+  const rgb2hex = (r: number, g: number, b: number) => 
+    `#${Math.round(r).toString(16).padStart(2, '0')}${Math.round(g).toString(16).padStart(2, '0')}${Math.round(b).toString(16).padStart(2, '0')}`
+  
+  const start = hex2rgb(startColor)
+  const end = hex2rgb(endColor)
+  const colors: string[] = []
+  
+  for (let i = 0; i < steps; i++) {
+    const ratio = i / (steps - 1)
+    const r = start.r + (end.r - start.r) * ratio
+    const g = start.g + (end.g - start.g) * ratio
+    const b = start.b + (end.b - start.b) * ratio
+    colors.push(rgb2hex(r, g, b))
+  }
+  
+  return colors
+}
+
+const COLORS = ['#eee', ...interpolateColor('#cce5ff', '#007bff', 5)]
 const ROWS = 24
 const COLS = 12
 const SIZE = 16
@@ -42,7 +67,7 @@ function formatHourLabel(row: number, dayStartHour: number): string {
   return isNextDay ? `${actualHour}时*` : `${actualHour}时`
 }
 
-export function StateBlockChart({ values, size = SIZE, dayStartHour = 0, showLabels = true }: StateBlockChartProps) {
+export function HeatmapChart({ values, size = SIZE, dayStartHour = 0, showLabels = true }: HeatmapChartProps) {
   const chartRef = useRef<HTMLDivElement>(null)
   const chartInstanceRef = useRef<echarts.ECharts | null>(null)
 

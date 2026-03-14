@@ -3,7 +3,7 @@ import { useState, useMemo, useCallback } from 'react'
 import { getProcessedRecord, getDateInfo, PcStateData } from '../dataProcessor'
 
 type ViewMode = 'day' | 'week' | 'month'
-type ChartType = 'mosaic' | 'appPie' | 'appStack'
+type ChartType = 'heatmap' | 'appPie' | 'bar'
 
 interface ChartDescription {
   main: string
@@ -33,7 +33,7 @@ interface ReportState {
 export function useReportState(pcStateData: PcStateData): ReportState {
   // 1. 基础状态
   const [viewMode, setViewMode] = useState<ViewMode>('day')
-  const [chartType, setChartType] = useState<ChartType>('mosaic')
+  const [chartType, setChartType] = useState<ChartType>('heatmap')
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
 
   // 2. 派生数据：图表数据
@@ -55,9 +55,9 @@ export function useReportState(pcStateData: PcStateData): ReportState {
   // 4. 派生数据：图标题
   const chartTitle = useMemo(() => {
     const chartTypeName = {
-      mosaic: '马赛克图',
+      heatmap: '热力图',
       appPie: '应用时长饼图',
-      appStack: '应用时长堆叠柱状图'
+      bar: '应用时长柱状图'
     }[chartType]
     
     return `${getDateInfo(selectedDate)} - ${chartTypeName}`
@@ -78,9 +78,9 @@ export function useReportState(pcStateData: PcStateData): ReportState {
       : `活跃时间${activeHours}小时${activeMins}分钟`
 
     switch (chartType) {
-      case 'mosaic':
+      case 'heatmap':
         return {
-          main: '活跃马赛克图：每个小格表示5分钟，格子颜色越深表示越繁忙。',
+          main: '活跃热力图：每个小格表示5分钟，格子颜色越深表示越繁忙。',
           timeInfo: `${timeInfo}，已点亮${activeSlots}个小格`,
           additional: pcStateData.day_start_hour > 0 
             ? `当前一天起始时间：凌晨${pcStateData.day_start_hour}时（带*号表示次日时间）`
@@ -93,9 +93,9 @@ export function useReportState(pcStateData: PcStateData): ReportState {
           timeInfo
         }
       
-      case 'appStack':
+      case 'bar':
         return {
-          main: '应用时长堆叠柱状图：显示每个小时内不同应用的活跃时长，堆叠显示便于对比。每小时内显示时长前5的应用，其余合并到"其他"。',
+          main: '应用时长柱状图：显示每个小时内不同应用的活跃时长，便于对比。每小时内显示时长前5的应用，其余合并到"其他"。',
           timeInfo
         }
     }
