@@ -142,65 +142,6 @@ export function App() {
             flexDirection: 'column',
             gap: 24
           }}>
-            {/* 视图切换 */}
-            <div>
-              <div style={{
-                fontSize: 14,
-                fontWeight: 500,
-                color: 'rgba(0,0,0,0.65)',
-                marginBottom: 8
-              }}>
-                时长区间选择
-              </div>
-              <div style={{
-                background: '#fff',
-                borderRadius: 4,
-                border: '1px solid #d9d9d9',
-                overflow: 'hidden'
-              }}>
-                <div
-                  onClick={() => {
-                    setViewMode('day')
-                    setChartType('heatmap')
-                  }}
-                  style={{
-                    padding: '8px 12px',
-                    cursor: 'pointer',
-                    background: viewMode === 'day' ? '#1890ff' : 'transparent',
-                    color: viewMode === 'day' ? '#fff' : 'rgba(0,0,0,0.45)',
-                    borderBottom: '1px solid #e8e8e8'
-                  }}
-                >
-                  日视图
-                </div>
-                <div
-                  onClick={() => {
-                    setViewMode('week')
-                    setChartType('weekHeatmap')
-                  }}
-                  style={{
-                    padding: '8px 12px',
-                    cursor: 'pointer',
-                    background: viewMode === 'week' ? '#1890ff' : 'transparent',
-                    color: viewMode === 'week' ? '#fff' : 'rgba(0,0,0,0.45)',
-                    borderBottom: '1px solid #e8e8e8'
-                  }}
-                >
-                  7天视图
-                </div>
-                <div
-                  onClick={() => setViewMode('month')}
-                  style={{
-                    padding: '8px 12px',
-                    cursor: 'pointer',
-                    background: viewMode === 'month' ? '#1890ff' : 'transparent',
-                    color: viewMode === 'month' ? '#fff' : 'rgba(0,0,0,0.45)'
-                  }}
-                >
-                  30天视图
-                </div>
-              </div>
-            </div>
 
             {/* 起始日期选择 */}
             <div>
@@ -299,6 +240,66 @@ export function App() {
                   >
                     后一天
                   </button>
+                </div>
+              </div>
+            </div>
+            
+            {/* 视图切换 */}
+            <div>
+              <div style={{
+                fontSize: 14,
+                fontWeight: 500,
+                color: 'rgba(0,0,0,0.65)',
+                marginBottom: 8
+              }}>
+                时长区间选择
+              </div>
+              <div style={{
+                background: '#fff',
+                borderRadius: 4,
+                border: '1px solid #d9d9d9',
+                overflow: 'hidden'
+              }}>
+                <div
+                  onClick={() => {
+                    setViewMode('day')
+                    setChartType('heatmap')
+                  }}
+                  style={{
+                    padding: '8px 12px',
+                    cursor: 'pointer',
+                    background: viewMode === 'day' ? '#1890ff' : 'transparent',
+                    color: viewMode === 'day' ? '#fff' : 'rgba(0,0,0,0.45)',
+                    borderBottom: '1px solid #e8e8e8'
+                  }}
+                >
+                  日视图
+                </div>
+                <div
+                  onClick={() => {
+                    setViewMode('week')
+                    setChartType('weekHeatmap')
+                  }}
+                  style={{
+                    padding: '8px 12px',
+                    cursor: 'pointer',
+                    background: viewMode === 'week' ? '#1890ff' : 'transparent',
+                    color: viewMode === 'week' ? '#fff' : 'rgba(0,0,0,0.45)',
+                    borderBottom: '1px solid #e8e8e8'
+                  }}
+                >
+                  7天视图
+                </div>
+                <div
+                  onClick={() => setViewMode('month')}
+                  style={{
+                    padding: '8px 12px',
+                    cursor: 'pointer',
+                    background: viewMode === 'month' ? '#1890ff' : 'transparent',
+                    color: viewMode === 'month' ? '#fff' : 'rgba(0,0,0,0.45)'
+                  }}
+                >
+                  30天视图
                 </div>
               </div>
             </div>
