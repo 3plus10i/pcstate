@@ -6,6 +6,9 @@ import { AppBarChart } from './AppBarChart'
 import { WeeklyHeatmapChart } from './WeeklyHeatmapChart'
 import { WeeklyAppPieChart } from './WeeklyAppPieChart'
 import { WeeklyAppBarChart } from './WeeklyAppBarChart'
+import { MonthlyHeatmapChart } from './MonthlyHeatmapChart'
+import { MonthlyAppPieChart } from './MonthlyAppPieChart'
+import { MonthlyAppBarChart } from './MonthlyAppBarChart'
 import { useReportState } from '../hooks/useReportState'
 import { PcStateData } from '../dataProcessor'
 import DatePicker from 'react-datepicker'
@@ -32,6 +35,7 @@ export function App() {
     selectedDate,
     processedData,
     processedWeekData,
+    processedMonthData,
     chartTitle,
     chartDescription,
     setViewMode,
@@ -104,13 +108,21 @@ export function App() {
   const weekHourlyAppData = processedWeekData?.hourlyAppData || []
   const weekDays = processedWeekData?.days || []
   
+  // 月视图数据
+  const monthHourlyActivity = processedMonthData?.hourlyActivity || []
+  const monthAppTotals = processedMonthData?.monthAppTotals || {}
+  const monthHourlyAppData = processedMonthData?.hourlyAppData || []
+  const monthDays = processedMonthData?.days || []
+  
   const hasData = viewMode === 'week' 
     ? (weekHourlyActivity.some(day => day.some(h => h > 0)))
+    : viewMode === 'month'
+    ? (monthHourlyActivity.some(day => day.some(h => h > 0)))
     : ((processedData?.slots?.filter(v => v > 0).length || 0) > 0)
 
   return (
     <div style={{ padding: '40px 20px', minHeight: '100vh', background: '#f0f2f5' }}>
-      <div style={{ maxWidth: '80vw', margin: '0 auto' }}>
+      <div style={{ maxWidth: '60vw', margin: '0 auto', minWidth: '900px' }}>
         {/* 顶部标题栏 */}
         <div style={{
           background: '#fff',
@@ -216,6 +228,20 @@ export function App() {
                           onChange={handleDateChange}
                           inline
                           showWeekNumbers
+                          calendarStartDay={1}
+                          formatWeekDay={(day: string) => {
+                            const weekDays: Record<string, string> = {
+                              // MondayTuesdayWednesdayThursdayFridaySaturdaySunday
+                              'Monday': '一',
+                              'Tuesday': '二',
+                              'Wednesday': '三',
+                              'Thursday': '四',
+                              'Friday': '五',
+                              'Saturday': '六',
+                              'Sunday': '日'
+                            }
+                            return weekDays[day] || day
+                          }}
                           includeDateIntervals={[{
                             start: minDate, end: maxDate
                           }]}
@@ -263,7 +289,6 @@ export function App() {
                 <div
                   onClick={() => {
                     setViewMode('day')
-                    setChartType('heatmap')
                   }}
                   style={{
                     padding: '8px 12px',
@@ -278,7 +303,6 @@ export function App() {
                 <div
                   onClick={() => {
                     setViewMode('week')
-                    setChartType('weekHeatmap')
                   }}
                   style={{
                     padding: '8px 12px',
@@ -315,13 +339,6 @@ export function App() {
                 图表类型选择
               </div>
               <div style={{
-                fontSize: 12,
-                color: 'rgba(0,0,0,0.45)',
-                marginBottom: 8
-              }}>
-                (不同时间视图，选项也不同)
-              </div>
-              <div style={{
                 background: '#fff',
                 borderRadius: 4,
                 border: '1px solid #d9d9d9',
@@ -338,19 +355,19 @@ export function App() {
                         color: chartType === 'heatmap' ? '#fff' : 'rgba(0,0,0,0.45)'
                       }}
                     >
-                      活跃热力图
+                      日活跃时间热力图
                     </div>
                     <div
-                      onClick={() => setChartType('appPie')}
+                      onClick={() => setChartType('apppie')}
                       style={{
                         padding: '8px 12px',
                         cursor: 'pointer',
-                        background: chartType === 'appPie' ? '#1890ff' : 'transparent',
-                        color: chartType === 'appPie' ? '#fff' : 'rgba(0,0,0,0.45)',
+                        background: chartType === 'apppie' ? '#1890ff' : 'transparent',
+                        color: chartType === 'apppie' ? '#fff' : 'rgba(0,0,0,0.45)',
                         borderTop: '1px solid #e8e8e8'
                       }}
                     >
-                      应用时长饼图
+                      日活跃应用饼图
                     </div>
                     <div
                       onClick={() => setChartType('bar')}
@@ -362,7 +379,7 @@ export function App() {
                         borderTop: '1px solid #e8e8e8'
                       }}
                     >
-                      应用时长柱状图
+                      日活跃应用柱状图
                     </div>
                   </>
                 )}
@@ -370,39 +387,79 @@ export function App() {
                 {viewMode === 'week' && (
                   <>
                     <div
-                      onClick={() => setChartType('weekHeatmap')}
+                      onClick={() => setChartType('weekheatmap')}
                       style={{
                         padding: '8px 12px',
                         cursor: 'pointer',
-                        background: chartType === 'weekHeatmap' ? '#1890ff' : 'transparent',
-                        color: chartType === 'weekHeatmap' ? '#fff' : 'rgba(0,0,0,0.45)'
+                        background: chartType === 'weekheatmap' ? '#1890ff' : 'transparent',
+                        color: chartType === 'weekheatmap' ? '#fff' : 'rgba(0,0,0,0.45)'
                       }}
                     >
-                      周热力图
+                      周活跃时间热力图
                     </div>
                     <div
-                      onClick={() => setChartType('weekAppPie')}
+                      onClick={() => setChartType('weekapppie')}
                       style={{
                         padding: '8px 12px',
                         cursor: 'pointer',
-                        background: chartType === 'weekAppPie' ? '#1890ff' : 'transparent',
-                        color: chartType === 'weekAppPie' ? '#fff' : 'rgba(0,0,0,0.45)',
+                        background: chartType === 'weekapppie' ? '#1890ff' : 'transparent',
+                        color: chartType === 'weekapppie' ? '#fff' : 'rgba(0,0,0,0.45)',
                         borderTop: '1px solid #e8e8e8'
                       }}
                     >
-                      周应用饼图
+                      周活跃应用饼图
                     </div>
                     <div
-                      onClick={() => setChartType('weekBar')}
+                      onClick={() => setChartType('weekbar')}
                       style={{
                         padding: '8px 12px',
                         cursor: 'pointer',
-                        background: chartType === 'weekBar' ? '#1890ff' : 'transparent',
-                        color: chartType === 'weekBar' ? '#fff' : 'rgba(0,0,0,0.45)',
+                        background: chartType === 'weekbar' ? '#1890ff' : 'transparent',
+                        color: chartType === 'weekbar' ? '#fff' : 'rgba(0,0,0,0.45)',
                         borderTop: '1px solid #e8e8e8'
                       }}
                     >
-                      周应用柱状图
+                      周活跃应用柱状图
+                    </div>
+                  </>
+                )}
+                
+                {viewMode === 'month' && (
+                  <>
+                    <div
+                      onClick={() => setChartType('monthheatmap')}
+                      style={{
+                        padding: '8px 12px',
+                        cursor: 'pointer',
+                        background: chartType === 'monthheatmap' ? '#1890ff' : 'transparent',
+                        color: chartType === 'monthheatmap' ? '#fff' : 'rgba(0,0,0,0.45)'
+                      }}
+                    >
+                      月活跃时间热力图
+                    </div>
+                    <div
+                      onClick={() => setChartType('monthapppie')}
+                      style={{
+                        padding: '8px 12px',
+                        cursor: 'pointer',
+                        background: chartType === 'monthapppie' ? '#1890ff' : 'transparent',
+                        color: chartType === 'monthapppie' ? '#fff' : 'rgba(0,0,0,0.45)',
+                        borderTop: '1px solid #e8e8e8'
+                      }}
+                    >
+                      月活跃应用饼图
+                    </div>
+                    <div
+                      onClick={() => setChartType('monthbar')}
+                      style={{
+                        padding: '8px 12px',
+                        cursor: 'pointer',
+                        background: chartType === 'monthbar' ? '#1890ff' : 'transparent',
+                        color: chartType === 'monthbar' ? '#fff' : 'rgba(0,0,0,0.45)',
+                        borderTop: '1px solid #e8e8e8'
+                      }}
+                    >
+                      月活跃应用柱状图
                     </div>
                   </>
                 )}
@@ -436,7 +493,7 @@ export function App() {
                       {chartType === 'heatmap' && (
                         <HeatmapChart values={values} dayStartHour={dayStartHour} showLabels={true} selectedDate={selectedDate} />
                       )}
-                      {chartType === 'appPie' && (
+                      {chartType === 'apppie' && (
                         <div style={{ width: '100%', padding: '20px' }}>
                           <AppPieChart appData={appData} />
                         </div>
@@ -451,24 +508,51 @@ export function App() {
                   
                   {viewMode === 'week' && (
                     <>
-                      {chartType === 'weekHeatmap' && (
+                      {chartType === 'weekheatmap' && (
                         <WeeklyHeatmapChart 
                           hourlyActivity={weekHourlyActivity} 
                           days={weekDays} 
                           dayStartHour={dayStartHour} 
                         />
                       )}
-                      {chartType === 'weekAppPie' && (
+                      {chartType === 'weekapppie' && (
                         <div style={{ width: '100%', padding: '20px' }}>
                           <WeeklyAppPieChart weekAppTotals={weekAppTotals} />
                         </div>
                       )}
-                      {chartType === 'weekBar' && (
+                      {chartType === 'weekbar' && (
                         <div style={{ width: '100%', padding: '20px' }}>
                           <WeeklyAppBarChart 
                             hourlyAppData={weekHourlyAppData}
                             days={weekDays}
                             weekAppTotals={weekAppTotals}
+                            dayStartHour={dayStartHour}
+                          />
+                        </div>
+                      )}
+                    </>
+                  )}
+                  
+                  {viewMode === 'month' && (
+                    <>
+                      {chartType === 'monthheatmap' && (
+                        <MonthlyHeatmapChart 
+                          hourlyActivity={monthHourlyActivity} 
+                          days={monthDays} 
+                          dayStartHour={dayStartHour} 
+                        />
+                      )}
+                      {chartType === 'monthapppie' && (
+                        <div style={{ width: '100%', padding: '20px' }}>
+                          <MonthlyAppPieChart monthAppTotals={monthAppTotals} />
+                        </div>
+                      )}
+                      {chartType === 'monthbar' && (
+                        <div style={{ width: '100%', padding: '20px' }}>
+                          <MonthlyAppBarChart 
+                            hourlyAppData={monthHourlyAppData}
+                            days={monthDays}
+                            monthAppTotals={monthAppTotals}
                             dayStartHour={dayStartHour}
                           />
                         </div>

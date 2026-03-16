@@ -24,6 +24,13 @@ export interface ProcessedWeekRecord {
   days: string[]  // 7天的日期字符串
 }
 
+export interface ProcessedMonthRecord {
+  hourlyActivity: number[][]  // 30×24矩阵，每小时的活跃分钟数(0-60)
+  monthAppTotals: Record<string, number>  // 30天总应用时长
+  hourlyAppData: Record<string, number>[][]  // 30×24的应用时长矩阵
+  days: string[]  // 30天的日期字符串
+}
+
 interface DayRecord {
   date: string
   slots?: number[]
@@ -309,6 +316,101 @@ export function getProcessedWeekRecord(data: PcStateData, endDate: Date): Proces
   return {
     hourlyActivity,
     weekAppTotals,
+    hourlyAppData,
+    days
+  }
+}
+
+export function getProcessedMonthRecord(data: PcStateData, endDate: Date): ProcessedMonthRecord {
+  const dayStartHour = data.day_start_hour || 0
+  const days: string[] = []
+  const hourlyActivity: number[][] = []  // 30×24矩阵
+  const hourlyAppData: Record<string, number>[][] = []  // 30×24的应用数据
+  const appTotals: Record<string, number> = {}
+  
+  // 计算30天的数据（D-29到D）
+  for (let i = 29; i >= 0; i--) {
+    const currentDate = new Date(endDate)
+    currentDate.setDate(currentDate.getDate() - i)
+    
+    const dateStr = formatDateToYYYYMMDD(currentDate)
+    days.push(dateStr)
+    
+    // 对每一天，执行与日视图相同的数据拼接逻辑
+    const currentRecord = getDayRecord(data, currentDate)
+    
+    // 获取次日数据（用于拼接）
+    const nextDate = new Date(currentDate)
+    nextDate.setDate(nextDate.getDate() + 1)
+    const nextRecord = getDayRecord(data, nextDate)
+    
+    // 1. 处理slots（活跃度）
+    const part1Start = dayStartHour * 12
+    const part1Slots = currentRecord?.slots?.slice(part1Start, 288) || new Array(288 - part1Start).fill(0)
+    const part2End = dayStartHour * 12
+    const part2Slots = nextRecord?.slots?.slice(0, part2End) || new Array(part2End).fill(0)
+    const daySlots = [...part1Slots, ...part2Slots]
+    
+    // 将slots转换为每小时的活跃度（0-60分钟）
+    // 注意：slots中的值本身就是活跃分钟数(0-5)，直接求和即可
+    const dayHourlyActivity: number[] = []
+    for (let hour = 0; hour < 24; hour++) {
+      const slotStart = hour * 12
+      const slotEnd = (hour + 1) * 12
+      let totalActivity = 0
+      
+      for (let slot = slotStart; slot < slotEnd && slot < daySlots.length; slot++) {
+        totalActivity += (daySlots[slot] || 0)  // 值本身就是分钟数
+      }
+      
+      dayHourlyActivity.push(Math.min(totalActivity, 60))
+    }
+    hourlyActivity.push(dayHourlyActivity)
+    
+    // 2. 处理应用数据
+    const part1AppHourly = (currentRecord?.app_hourly || []).slice(dayStartHour, 24)
+    const part2AppHourly = (nextRecord?.app_hourly || []).slice(0, dayStartHour)
+    const rawAppHourly = [...part1AppHourly, ...part2AppHourly]
+    
+    const part1WindowHourly = (currentRecord?.window_hourly || []).slice(dayStartHour, 24)
+    const part2WindowHourly = (nextRecord?.window_hourly || []).slice(0, dayStartHour)
+    const rawWindowHourly = [...part1WindowHourly, ...part2WindowHourly]
+    
+    const dayHourlyApps = mergeHourlyData(
+      processHourlyData(rawAppHourly),
+      processHourlyData(rawWindowHourly)
+    )
+    hourlyAppData.push(dayHourlyApps)
+    
+    // 3. 累加应用总时长
+    dayHourlyApps.forEach(hourData => {
+      Object.entries(hourData).forEach(([app, minutes]) => {
+        appTotals[app] = (appTotals[app] || 0) + minutes
+      })
+    })
+  }
+  
+  // 处理占比<5%的应用，合并为"其他"
+  const totalMinutes = Object.values(appTotals).reduce((sum, m) => sum + m, 0)
+  const monthAppTotals: Record<string, number> = {}
+  let otherMinutes = 0
+  
+  Object.entries(appTotals).forEach(([app, minutes]) => {
+    const percentage = totalMinutes > 0 ? minutes / totalMinutes : 0
+    if (percentage < 0.05) {
+      otherMinutes += minutes
+    } else {
+      monthAppTotals[app] = minutes
+    }
+  })
+  
+  if (otherMinutes > 0) {
+    monthAppTotals['其他'] = otherMinutes
+  }
+  
+  return {
+    hourlyActivity,
+    monthAppTotals,
     hourlyAppData,
     days
   }
