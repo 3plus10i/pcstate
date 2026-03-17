@@ -53,17 +53,20 @@ class SQLiteStorage:
     
     def _cleanup_old_data(self) -> None:
         """清理旧数据"""
+        from datetime import datetime
         
         cutoff_date = date.today() - timedelta(days=self.CLEANUP_DAYS)
-        cutoff_date_str = cutoff_date.isoformat()
+        # 计算截止日期0:00的分钟时间戳
+        cutoff_dt = datetime(cutoff_date.year, cutoff_date.month, cutoff_date.day, 0, 0)
+        cutoff_time = int(cutoff_dt.timestamp() // 60)
         
-        print(f"数据库文件超过 {self.MAX_DB_SIZE_MB}MB，开始清理 {self.CLEANUP_DAYS} 天前的数据（{cutoff_date_str} 之前）")
+        print(f"数据库文件超过 {self.MAX_DB_SIZE_MB}MB，开始清理 {self.CLEANUP_DAYS} 天前的数据（{cutoff_date.isoformat()} 之前）")
         
         try:
             conn = sqlite3.connect(self._db_path)
             
             # 统计删除前的数据量
-            cursor = conn.execute('SELECT COUNT(*) FROM activity WHERE date < ?', (cutoff_date_str,))
+            cursor = conn.execute('SELECT COUNT(*) FROM activity WHERE time < ?', (cutoff_time,))
             old_records_count = cursor.fetchone()[0]
             
             if old_records_count == 0:
@@ -74,7 +77,7 @@ class SQLiteStorage:
             print(f"找到 {old_records_count} 条旧数据，正在清理...")
             
             # 删除旧数据
-            conn.execute('DELETE FROM activity WHERE date < ?', (cutoff_date_str,))
+            conn.execute('DELETE FROM activity WHERE time < ?', (cutoff_time,))
             conn.commit()
             
             # 获取删除后的数据量
@@ -117,40 +120,129 @@ class SQLiteStorage:
         table_exists = cursor.fetchone() is not None
 
         if table_exists:
-            # 检查是否有新字段
+            # 检查是否需要迁移到新结构
             cursor = conn.execute("PRAGMA table_info(activity)")
             columns = {row[1] for row in cursor}
-            if 'is_active' not in columns:
-                # 迁移旧表结构
+            
+            if 'time' not in columns:
+                # 迁移到新表结构：time INTEGER PRIMARY KEY, is_active, prog_name, win_title
+                # 先检查旧表有哪些字段
+                cursor = conn.execute("PRAGMA table_info(activity)")
+                old_columns = {row[1] for row in cursor}
+                
+                # 构建迁移SQL
+                has_process_name = 'process_name' in old_columns
+                has_window_title = 'window_title' in old_columns
+                has_count = 'count' in old_columns
+                has_is_active = 'is_active' in old_columns
+                has_date = 'date' in old_columns
+                has_minute = 'minute' in old_columns
+                
+                if not (has_date and has_minute):
+                    print("警告：旧表缺少必要的date或minute字段，无法迁移")
+                    conn.close()
+                    return
+                
+                # 迁移：创建新表 -> 迁移数据 -> 删除旧表 -> 重命名
                 conn.execute('''
                     CREATE TABLE activity_new (
-                        date TEXT NOT NULL,
-                        minute INTEGER NOT NULL,
+                        time INTEGER NOT NULL,
                         is_active INTEGER NOT NULL,
-                        window_title TEXT,
-                        process_name TEXT,
-                        PRIMARY KEY (date, minute)
+                        prog_name TEXT,
+                        win_title TEXT,
+                        PRIMARY KEY (time)
                     )
                 ''')
-                # 迁移旧数据（count > 0 视为活跃）
-                conn.execute('''
-                    INSERT INTO activity_new (date, minute, is_active, window_title, process_name)
-                    SELECT date, minute,
-                           CASE WHEN count > 0 THEN 1 ELSE 0 END,
-                           '', '' FROM activity
-                ''')
+                
+                # 一次性获取所有旧数据（根据可用字段选择查询）
+                # 优先检查 is_active（新版旧结构），其次是 count，最其次是默认值1
+                if has_is_active and has_process_name and has_window_title:
+                    cursor = conn.execute(
+                        'SELECT date, minute, is_active, process_name, window_title FROM activity'
+                    )
+                    old_data = cursor.fetchall()
+                elif has_is_active and has_process_name:
+                    cursor = conn.execute(
+                        'SELECT date, minute, is_active, process_name FROM activity'
+                    )
+                    old_data = [(row[0], row[1], row[2], row[3], None) for row in cursor]
+                elif has_is_active:
+                    cursor = conn.execute(
+                        'SELECT date, minute, is_active FROM activity'
+                    )
+                    old_data = [(row[0], row[1], row[2], None, None) for row in cursor]
+                elif has_count and has_process_name and has_window_title:
+                    cursor = conn.execute(
+                        'SELECT date, minute, count, process_name, window_title FROM activity'
+                    )
+                    old_data = cursor.fetchall()
+                elif has_count and has_process_name:
+                    cursor = conn.execute(
+                        'SELECT date, minute, count, process_name FROM activity'
+                    )
+                    old_data = [(row[0], row[1], row[2], row[3], None) for row in cursor]
+                elif has_count:
+                    cursor = conn.execute(
+                        'SELECT date, minute, count FROM activity'
+                    )
+                    old_data = [(row[0], row[1], row[2], None, None) for row in cursor]
+                else:
+                    cursor = conn.execute('SELECT date, minute FROM activity')
+                    old_data = [(row[0], row[1], 1, None, None) for row in cursor]
+                
+                if old_data:
+                    from datetime import datetime
+                    new_records = []
+                    
+                    for row in old_data:
+                        date_str = row[0]
+                        minute_val = row[1]
+                        count_val = row[2] if len(row) > 2 else 1
+                        process_name = row[3] if len(row) > 3 else None
+                        window_title = row[4] if len(row) > 4 else None
+                        
+                        try:
+                            # 解析日期字符串，计算时间戳
+                            dt = datetime.strptime(date_str, '%Y-%m-%d')
+                            dt = dt.replace(hour=minute_val // 60, minute=minute_val % 60)
+                            time_minutes = int(dt.timestamp() // 60)
+                            
+                            # is_active: count>0 则为活跃
+                            is_active = 1 if count_val and count_val > 0 else 0
+                            
+                            # prog_name: 去除.exe后缀
+                            prog_name = ""
+                            if process_name:
+                                prog_name = process_name[:-4] if process_name.lower().endswith('.exe') else process_name
+                            
+                            # win_title: 截断64字符
+                            win_title = ""
+                            if window_title:
+                                win_title = window_title[:64]
+                            
+                            new_records.append((time_minutes, is_active, prog_name, win_title))
+                        except Exception as e:
+                            print(f"迁移数据出错: {date_str}, {minute_val}: {e}")
+                            continue
+                    
+                    if new_records:
+                        conn.executemany(
+                            'INSERT OR REPLACE INTO activity_new (time, is_active, prog_name, win_title) VALUES (?, ?, ?, ?)',
+                            new_records
+                        )
+                        print(f"迁移完成，共 {len(new_records)} 条记录")
+                
                 conn.execute('DROP TABLE activity')
                 conn.execute('ALTER TABLE activity_new RENAME TO activity')
         else:
             # 创建新表
             conn.execute('''
                 CREATE TABLE activity (
-                    date TEXT NOT NULL,
-                    minute INTEGER NOT NULL,
+                    time INTEGER NOT NULL,
                     is_active INTEGER NOT NULL,
-                    window_title TEXT,
-                    process_name TEXT,
-                    PRIMARY KEY (date, minute)
+                    prog_name TEXT,
+                    win_title TEXT,
+                    PRIMARY KEY (time)
                 )
             ''')
         
@@ -167,6 +259,9 @@ class SQLiteStorage:
         conn.execute('''
             INSERT OR IGNORE INTO config (key, value) VALUES ('day_start_hour', '4')
         ''')
+        conn.execute('''
+            INSERT OR IGNORE INTO config (key, value) VALUES ('timezone', '8')
+        ''')
 
         conn.commit()
         conn.close()
@@ -179,33 +274,50 @@ class SQLiteStorage:
         
         if target_date is None:
             target_date = date.today()
-        date_str = target_date.isoformat()
-        minute_of_day = hour * 60 + minute
+        
+        # 计算分钟时间戳：从指定日期的hour:minute到1970-01-01的分钟数
+        from datetime import datetime
+        dt = datetime(target_date.year, target_date.month, target_date.day, hour, minute)
+        time_minutes = int(dt.timestamp() // 60)
+        
+        # 处理prog_name：去除.exe后缀
+        prog_name = ""
+        if process_name:
+            prog_name = process_name[:-4] if process_name.lower().endswith('.exe') else process_name
+        
+        # 处理win_title：截断64字符
+        win_title = window_title[:64] if window_title else ""
 
         conn = sqlite3.connect(self._db_path)
         conn.execute('''
-            INSERT INTO activity (date, minute, is_active, window_title, process_name)
-            VALUES (?, ?, ?, ?, ?)
-            ON CONFLICT(date, minute) DO UPDATE SET
+            INSERT INTO activity (time, is_active, prog_name, win_title)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(time) DO UPDATE SET
                 is_active = excluded.is_active,
-                window_title = excluded.window_title,
-                process_name = excluded.process_name
-        ''', (date_str, minute_of_day, 1 if is_active else 0, window_title, process_name))
+                prog_name = excluded.prog_name,
+                win_title = excluded.win_title
+        ''', (time_minutes, 1 if is_active else 0, prog_name, win_title))
         conn.commit()
         conn.close()
 
     def read_by_date(self, target_date: date) -> List[str]:
-        
-        date_str = target_date.isoformat()
+        from datetime import datetime
+        # 计算目标日期的时间范围（分钟时间戳）
+        start_dt = datetime(target_date.year, target_date.month, target_date.day, 0, 0)
+        end_dt = datetime(target_date.year, target_date.month, target_date.day, 23, 59)
+        start_time = int(start_dt.timestamp() // 60)
+        end_time = int(end_dt.timestamp() // 60)
 
         conn = sqlite3.connect(self._db_path)
         cursor = conn.execute(
-            'SELECT minute FROM activity WHERE date = ? AND is_active = 1',
-            (date_str,)
+            'SELECT time FROM activity WHERE time >= ? AND time <= ? AND is_active = 1',
+            (start_time, end_time)
         )
         result = []
         for row in cursor:
-            minute_of_day = row[0]
+            ts = row[0] * 60  # 转回秒时间戳
+            dt = datetime.fromtimestamp(ts)
+            minute_of_day = dt.hour * 60 + dt.minute
             hour = minute_of_day // 60
             min_part = minute_of_day % 60
             result.append(f"{hour:02d}{min_part:02d}")
@@ -223,27 +335,28 @@ class SQLiteStorage:
             字典，key为应用名，value为活跃分钟数
         """
         
+        from datetime import datetime
+        # 计算目标日期的时间范围（分钟时间戳）
+        start_dt = datetime(target_date.year, target_date.month, target_date.day, 0, 0)
+        end_dt = datetime(target_date.year, target_date.month, target_date.day, 23, 59)
+        start_time = int(start_dt.timestamp() // 60)
+        end_time = int(end_dt.timestamp() // 60)
 
         app_durations = {}
-        
-        if day_start_hour == 0:
-            # 标准模式：只查询当天数据
-            date_str = target_date.isoformat()
-            conn = sqlite3.connect(self._db_path)
-            cursor = conn.execute(
-                'SELECT minute, process_name, is_active FROM activity WHERE date = ?',
-                (date_str,)
-            )
-            for row in cursor:
-                minute_of_day = row[0]
-                process_name = row[1] or ''
-                is_active = row[2]
-                
-                if is_active:
-                    if process_name not in app_durations:
-                        app_durations[process_name] = 0
-                    app_durations[process_name] += 1
-            conn.close()
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.execute(
+            'SELECT time, prog_name, is_active FROM activity WHERE time >= ? AND time <= ?',
+            (start_time, end_time)
+        )
+        for row in cursor:
+            prog_name = row[1] or ''
+            is_active = row[2]
+            
+            if is_active and prog_name:
+                if prog_name not in app_durations:
+                    app_durations[prog_name] = 0
+                app_durations[prog_name] += 1
+        conn.close()
         return app_durations
 
     def get_window_durations(self, target_date: date) -> dict:
@@ -256,23 +369,27 @@ class SQLiteStorage:
             字典，key为窗口标题，value为活跃分钟数
         """
         
+        from datetime import datetime
+        # 计算目标日期的时间范围（分钟时间戳）
+        start_dt = datetime(target_date.year, target_date.month, target_date.day, 0, 0)
+        end_dt = datetime(target_date.year, target_date.month, target_date.day, 23, 59)
+        start_time = int(start_dt.timestamp() // 60)
+        end_time = int(end_dt.timestamp() // 60)
 
         window_durations = {}
-        date_str = target_date.isoformat()
         conn = sqlite3.connect(self._db_path)
         cursor = conn.execute(
-            'SELECT minute, window_title, is_active FROM activity WHERE date = ?',
-            (date_str,)
+            'SELECT time, win_title, is_active FROM activity WHERE time >= ? AND time <= ?',
+            (start_time, end_time)
         )
         for row in cursor:
-            minute_of_day = row[0]
-            window_title = row[1] or ''
+            win_title = row[1] or ''
             is_active = row[2]
             
-            if is_active:
-                if window_title not in window_durations:
-                    window_durations[window_title] = 0
-                window_durations[window_title] += 1
+            if is_active and win_title:
+                if win_title not in window_durations:
+                    window_durations[win_title] = 0
+                window_durations[win_title] += 1
         conn.close()
 
         return window_durations
@@ -287,25 +404,30 @@ class SQLiteStorage:
             24个元素的列表，每个元素是一个字典，key为应用名，value为该小时内的活跃分钟数
         """
         
+        from datetime import datetime
+        # 计算目标日期的时间范围（分钟时间戳）
+        start_dt = datetime(target_date.year, target_date.month, target_date.day, 0, 0)
+        end_dt = datetime(target_date.year, target_date.month, target_date.day, 23, 59)
+        start_time = int(start_dt.timestamp() // 60)
+        end_time = int(end_dt.timestamp() // 60)
 
         hourly_data = [{} for _ in range(24)]
-        date_str = target_date.isoformat()
         conn = sqlite3.connect(self._db_path)
         cursor = conn.execute(
-            'SELECT minute, process_name, is_active FROM activity WHERE date = ?',
-            (date_str,)
+            'SELECT time, prog_name, is_active FROM activity WHERE time >= ? AND time <= ?',
+            (start_time, end_time)
         )
         for row in cursor:
-            minute_of_day = row[0]
-            process_name = row[1] or ''
+            ts = row[0] * 60  # 转回秒时间戳
+            dt = datetime.fromtimestamp(ts)
+            hour = dt.hour
+            prog_name = row[1] or ''
             is_active = row[2]
             
-            if is_active:
-                hour = minute_of_day // 60
-                if 0 <= hour < 24:
-                    if process_name not in hourly_data[hour]:
-                        hourly_data[hour][process_name] = 0
-                    hourly_data[hour][process_name] += 1
+            if is_active and prog_name and 0 <= hour < 24:
+                if prog_name not in hourly_data[hour]:
+                    hourly_data[hour][prog_name] = 0
+                hourly_data[hour][prog_name] += 1
         conn.close()
         
         return hourly_data
@@ -320,25 +442,30 @@ class SQLiteStorage:
             24个元素的列表，每个元素是一个字典，key为窗口标题，value为该小时内的活跃分钟数
         """
         
+        from datetime import datetime
+        # 计算目标日期的时间范围（分钟时间戳）
+        start_dt = datetime(target_date.year, target_date.month, target_date.day, 0, 0)
+        end_dt = datetime(target_date.year, target_date.month, target_date.day, 23, 59)
+        start_time = int(start_dt.timestamp() // 60)
+        end_time = int(end_dt.timestamp() // 60)
 
         hourly_data = [{} for _ in range(24)]
-        date_str = target_date.isoformat()
         conn = sqlite3.connect(self._db_path)
         cursor = conn.execute(
-            'SELECT minute, window_title, is_active FROM activity WHERE date = ?',
-            (date_str,)
+            'SELECT time, win_title, is_active FROM activity WHERE time >= ? AND time <= ?',
+            (start_time, end_time)
         )
         for row in cursor:
-            minute_of_day = row[0]
-            window_title = row[1] or ''
+            ts = row[0] * 60  # 转回秒时间戳
+            dt = datetime.fromtimestamp(ts)
+            hour = dt.hour
+            win_title = row[1] or ''
             is_active = row[2]
             
-            if is_active:
-                hour = minute_of_day // 60
-                if 0 <= hour < 24:
-                    if window_title not in hourly_data[hour]:
-                        hourly_data[hour][window_title] = 0
-                    hourly_data[hour][window_title] += 1
+            if is_active and win_title and 0 <= hour < 24:
+                if win_title not in hourly_data[hour]:
+                    hourly_data[hour][win_title] = 0
+                hourly_data[hour][win_title] += 1
         conn.close()
         
         return hourly_data
@@ -352,17 +479,26 @@ class SQLiteStorage:
         Returns:
             288个整数的列表，每个值表示对应5分钟区间内的活跃分钟数（0-5）
         """
+        
+        from datetime import datetime
+        # 计算目标日期的时间范围（分钟时间戳）
+        start_dt = datetime(target_date.year, target_date.month, target_date.day, 0, 0)
+        end_dt = datetime(target_date.year, target_date.month, target_date.day, 23, 59)
+        start_time = int(start_dt.timestamp() // 60)
+        end_time = int(end_dt.timestamp() // 60)
+
         slots = [0] * 288
-        date_str = target_date.isoformat()
         
         conn = sqlite3.connect(self._db_path)
         cursor = conn.execute(
-            'SELECT minute, is_active FROM activity WHERE date = ? ORDER BY minute',
-            (date_str,)
+            'SELECT time, is_active FROM activity WHERE time >= ? AND time <= ? ORDER BY time',
+            (start_time, end_time)
         )
         
         for row in cursor:
-            minute_of_day = row[0]
+            ts = row[0] * 60  # 转回秒时间戳
+            dt = datetime.fromtimestamp(ts)
+            minute_of_day = dt.hour * 60 + dt.minute
             is_active = row[1]
             
             if is_active:
@@ -409,3 +545,17 @@ class SQLiteStorage:
         if hour not in [0, 4]:
             raise ValueError("day_start_hour must be 0 or 4")
         self.set_config('day_start_hour', str(hour))
+
+    def get_timezone(self) -> int:
+        """获取时区偏移值"""
+        value = self.get_config('timezone', '8')
+        try:
+            return int(value)
+        except ValueError:
+            return 8
+
+    def set_timezone(self, offset: int) -> None:
+        """设置时区偏移值"""
+        if offset < -12 or offset > 14:
+            raise ValueError("timezone must be between -12 and 14")
+        self.set_config('timezone', str(offset))

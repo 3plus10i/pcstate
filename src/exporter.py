@@ -182,9 +182,11 @@ def export_data() -> str:
         record_list.append(record_item)
 
     # 新数据结构
+    timezone = config.get_timezone()
     pcstate_data = {
         "version": VERSION,
         "day_start_hour": day_start_hour,
+        "timezone": timezone,
         "record": record_list
     }
 

@@ -203,7 +203,11 @@ def check_and_report():
         check_time = now - timedelta(minutes=1)
         from src.sqlite import SQLiteStorage
         backend = SQLiteStorage()
-        backend.write(check_time.hour, check_time.minute, is_active, window_title, process_name, check_time.date())
+        
+        # 过滤Windows锁屏进程，避免重复记录锁屏界面
+        lock_screen_processes = {'LockApp.exe', 'LogonUI.exe'}
+        if process_name not in lock_screen_processes:
+            backend.write(check_time.hour, check_time.minute, is_active, window_title, process_name, check_time.date())
 
         if new_status != current_status:
             current_status = new_status

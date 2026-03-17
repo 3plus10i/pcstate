@@ -1,376 +1,352 @@
 # PCState 技术文档
 
-## 架构概览
+## 1. 项目概述
+
+PCState 是一个运行在 Windows 系统托盘中的小工具，记录用户每天使用电脑的时间分布和各应用的运行时长。
+
+### 核心功能
+- **空闲检测**：通过 Windows API 检测用户是否有键鼠操作
+- **活动记录**：每分钟记录活跃状态、程序名、窗口标题
+- **数据可视化**：前端热力图、饼图、柱状图展示活跃数据
+- **托盘运行**：最小化到系统托盘，开机自启
+
+---
+
+## 2. 项目结构
 
 ```
 pcstate/
-├── main.py               # 程序入口
-├── build.py              # 打包脚本（含版本同步）
-├── version.py            # 版本号
-├── requirements.txt      # Python依赖
-├── src/                  # Python核心模块
-│   ├── __init__.py
-│   ├── main.py           # 托盘程序主循环
-│   ├── idle_detector.py  # 空闲检测（Windows API）
-│   ├── recorder.py       # 记录层接口
-│   ├── sqlite.py         # SQLite存储
-│   ├── config.py         # 配置管理
-│   ├── startup_manager.py # 开机启动管理
-│   ├── utils.py         # 工具函数
-│   └── exporter.py      # 数据导出
-├── frontend/             # React + Vite 前端
-│   ├── index.html
-│   ├── package.json      # 版本号自动同步
-│   ├── vite.config.ts    # 输出到 ../viewer/
-│   └── src/
-│       ├── main.tsx
-│       ├── index.css
-│       └── components/
-│           ├── App.tsx           # 主界面
-│           └── HeatmapChart.tsx # 热力图组件
-├── viewer/               # 前端构建输出(单文件输出)
-│   └── index.html
-└── public/               # 静态资源
-    ├── icon_active.ico   # 活跃图标
-    └── icon_idle.ico     # 闲置图标
+├── main.py                 # 程序入口
+├── build.py                 # 打包脚本
+├── version.py               # 版本号 (如 1.8.0.0)
+├── requirements.txt         # Python 依赖
+│
+├── src/                    # Python 后端模块
+│   ├── main.py             # 托盘程序 + 主循环
+│   ├── idle_detector.py   # 空闲检测 (Windows API)
+│   ├── sqlite.py           # SQLite 存储层
+│   ├── config.py           # 配置管理 (配置表的wrapper)
+│   ├── exporter.py         # 数据导出 (生成前端数据)
+│   ├── startup_manager.py  # 开机启动管理
+│   └── utils.py            # 路径工具函数
+│
+├── frontend/               # React 前端源码
+│   ├── src/
+│   │   ├── main.tsx       # 前端入口
+│   │   ├── components/    # 各种图表组件
+│   │   └── App.tsx       # 主界面
+│   ├── vite.config.ts    # Vite 配置
+│   └── package.json      # 前端依赖
+│
+├── viewer/                 # 前端构建产物 (HTML/JS/CSS)
+├── temp/                   # 运行时临时目录 (data.js + index.html)
+├── public/                 # 静态资源 (图标 .ico)
+└── pcstate.db              # SQLite 数据库
 ```
 
 ---
 
-## 核心模块
+## 3. 核心模块详解
 
-### 1. 空闲检测 (`src/idle_detector.py`)
+### 3.1 主循环 (main.py)
 
-**原理**: 调用 Windows API 获取最后输入时间
+程序启动后创建系统托盘图标，后台启动一个线程执行 `check_and_report()`：
 
 ```python
-# 核心逻辑
-kernel32.GetTickCount64() - user32.GetLastInputInfo()
+def check_and_report():
+    while running:
+        # 1. 检测空闲时间
+        idle_time = idle_detector.get_idle_duration()  # 秒
+        
+        # 2. 判断活跃状态 (闲置 < 60秒 = 活跃)
+        is_active = idle_time < 60
+        
+        # 3. 获取活动窗口信息
+        window_title, process_name = idle_detector.get_active_window_info()
+        
+        # 4. 记录上一分钟的数据
+        check_time = datetime.now() - timedelta(minutes=1)
+        backend.write(check_time.hour, check_time.minute, is_active, 
+                     window_title, process_name, check_time.date())
+        
+        # 5. 更新托盘图标
+        update_tray_icon('active' if is_active else 'idle')
+        
+        # 6. 休眠 60 秒
+        time.sleep(60)
 ```
 
-**接口**:
-- `get_idle_duration() -> int`: 返回用户无键鼠操作的秒数
-- `is_active(threshold=300) -> bool`: 判断是否活跃状态
-
-**使用场景**: 主循环每分钟检测一次，闲置时间 < 60秒判定为活跃
+**注意**：
+- 记录的是"上一分钟"的数据，而非当前时刻
+- 每分钟检测一次，休眠期间不占用 CPU
 
 ---
 
-### 2. 存储层 (`src/sqlite.py`)
+### 3.2 空闲检测 (idle_detector.py)
 
-**表结构**:
+调用 Windows API 获取用户最后输入时间：
+
+```python
+# 核心原理
+last_input = user32.GetLastInputInfo()      # 最后输入时间 (tick)
+now = kernel32.GetTickCount64()              # 当前时间 (tick)
+idle_seconds = (now - last_input) // 1000   # 转换为秒
+```
+
+还提供 `get_active_window_info()` 获取前台窗口的标题和进程名。
+
+---
+
+### 3.3 数据库存储 (sqlite.py)
+
+**表结构**：
+
 ```sql
 -- 活动记录表
 CREATE TABLE activity (
-    date TEXT NOT NULL,
-    minute INTEGER NOT NULL,  -- 一天中的第几分钟 (0-1439)
-    is_active INTEGER NOT NULL,  -- 是否活跃 (0/1)
-    window_title TEXT,  -- 活动窗口标题
-    process_name TEXT,  -- 活动程序名
-    PRIMARY KEY (date, minute)
-)
+    time INTEGER PRIMARY KEY,       -- 分钟级时间戳 (Unix分钟数)
+    is_active INTEGER NOT NULL,     -- 是否活跃 (0/1)
+    prog_name TEXT,                 -- 程序名 (存入时去除 .exe 后缀)
+    win_title TEXT                  -- 窗口标题 (存入时截断64字符)
+);
 
 -- 配置表
 CREATE TABLE config (
-    key TEXT NOT NULL,
-    value TEXT NOT NULL,
-    PRIMARY KEY (key)
-)
+    key TEXT PRIMARY KEY,
+    value TEXT
+);
 ```
 
-**核心接口**:
+**关键字段说明**：
+- `time`：1970-01-01 到该时刻的分钟数，作为主键可唯一确定一分钟
+- `prog_name`：如 `chrome.exe` 存入时变为 `chrome`
+- `win_title`：原始窗口标题，截断到64字符
+
+**核心接口**：
+
 ```python
-def get_record_path(target_date) -> str      # 获取存储路径
-def write(hour, minute, is_active, window_title, process_name) -> None  # 写入活跃记录
-def read_by_date(target_date) -> [str]    # 读取时间记录（HHMM格式）
-def get_slots(target_date) -> [int]       # 获取槽位统计（288个）
-def get_config(key, default) -> str        # 获取配置值
-def set_config(key, value) -> None        # 设置配置值
-def get_day_start_hour() -> int           # 获取一天起始小时
-def set_day_start_hour(hour) -> None      # 设置一天起始小时
+# 写入一条活动记录
+backend.write(hour, minute, is_active, window_title, process_name, date)
+
+# 读取某天的活跃时间点 (返回 HHMM 格式列表)
+backend.read_by_date(target_date)
+
+# 获取某天的应用时长 {app_name: 分钟数}
+backend.get_app_durations(target_date)
+
+# 获取某天的窗口时长 {window_title: 分钟数}
+backend.get_window_durations(target_date)
+
+# 获取每小时的应用/窗口数据 (用于前端图表)
+backend.get_hourly_app_durations(target_date)  # List[dict]
+backend.get_hourly_window_durations(target_date)
+
+# 获取每5分钟的槽位数据 (288个元素，每个0-5)
+backend.get_slots(target_date)
+
+# 配置管理
+backend.get_timezone()       # 获取时区偏移 (默认8)
+backend.set_timezone(offset) # 设置时区偏移 (-12~14)
+backend.get_day_start_hour() # 获取一天起始小时 (0或4)
+backend.set_day_start_hour(hour)
 ```
 
-**特点**:
-- 单文件数据库：程序根目录下的 `pcstate.db`
-- 配置统一存储：用户配置（如一天起始时间）存储在数据库中
-- 支持数据更新：同一分钟多次记录会更新为最新状态
-- 使用 UPSERT 语法避免重复插入
+**数据迁移**：
+- 程序启动时检查表结构
+- 如发现旧结构 (`date` + `minute`)，自动迁移到新结构 (`time`)
+- 迁移时会转换时间戳、处理程序名和窗口标题
 
 ---
 
-### 3. 记录接口 (`src/recorder.py`)
+### 3.4 配置管理 (config.py)
 
-**核心接口**:
+对 `SQLiteStorage` 的封装，提供更简洁的 API：
+
 ```python
-def write_record(record: str) -> None         # 写入 HHMM 记录
-def read_records_by_date(record_date: str) -> []  # 读取日期记录
-def get_slots_by_date(target_date) -> []   # 获取槽位统计
-def get_record_path(target_date) -> str    # 获取记录文件路径
-def get_record_files() -> []             # 获取记录文件列表
+from src import config
+
+config.get_day_start_hour()    # 获取一天起始时间
+config.set_day_start_hour(4)   # 设置为凌晨4点
+config.get_timezone()          # 获取时区偏移
+config.set_timezone(8)         # 设置为 UTC+8
 ```
 
 ---
 
-### 4. 数据导出 (`src/exporter.py`)
+### 3.5 数据导出 (exporter.py)
 
-**核心函数**:
+前端需要 JSON 格式的数据，此模块负责：
 
-```python
-def export_data() -> (str, int):
-    """导出最近14天数据到 temp/data.js"""
-    # 生成 RECORD_DATA, DATES, APP_VERSION 全局变量
+1. **export_data()**: 从数据库读取最近31天的数据，生成 `temp/data.js`
 
-def get_viewer_files() -> (str, str):
-    """从 viewer 目录复制资源到 temp 目录"""
-    # 在 index.html 中插入 <script src="data.js"></script>
+```javascript
+// 输出格式
+window.PCSTATE_DATA = {
+    version: "1.8.0.0",
+    day_start_hour: 4,        // 一天起始时间
+    timezone: 8,               // 时区偏移
+    record: [
+        {
+            date: "20260317",
+            slots: [0,1,2,3,...],     // 288个槽位，每5分钟活跃计数
+            app_hourly: [{},{},...],  // 24小时，每小时 {app: 分钟数}
+            window_hourly: [{},{},...]
+        },
+        ...
+    ]
+};
 ```
 
-**数据注入**:
-- 运行时生成 `temp/data.js`
-- 全局变量: `RECORD_DATA`, `DATES`, `APP_VERSION`
+2. **get_viewer_files()**: 将构建好的前端页面复制到 temp 目录
 
 ---
 
-### 5. 托盘程序 (`src/main.py`)
+### 3.6 开机启动 (startup_manager.py)
 
-**主循环**:
+通过 Windows 启动文件夹管理：
+
 ```python
-def check_and_report():
-    """每分钟检测一次"""
-    idle_time = get_idle_duration()
-    is_active = idle_time < 60
-    
-    # 获取活动窗口信息
-    window_title, process_name = get_active_window_info()
-    
-    # 记录上一分钟
-    recorder.write_record(f"{hour:02d}{minute:02d}")
-    
-    # 写入数据库
-    backend.write(hour, minute, is_active, window_title, process_name)
-    
-    # 更新托盘图标
-    update_tray_icon('active' if is_active else 'idle')
-    
-    time.sleep(60)
+startup_manager.is_startup_enabled()    # 检查是否已启用
+startup_manager.add_to_startup()        # 添加到开机启动
+startup_manager.remove_from_startup()   # 移除开机启动
 ```
-
-**托盘功能**:
-- 右键菜单: 查看记录、开机启动、打开目录、退出
-- 图标状态: 🟢 活跃 / ⚪ 闲置
-- 双击: 打开数据检视页面
 
 ---
 
-## 前端 (`frontend/`)
+## 4. 前端架构
 
 ### 技术栈
+- **React 18** + TypeScript
+- **Vite 5** (构建工具)
+- **ECharts** (图表库)
 
-- **框架**: React 18 + TypeScript
-- **构建工具**: Vite 5
-- **可视化**: ECharts
+### 数据流
+
+```
+SQLite DB
+    │
+    ▼
+export_data() ──► temp/data.js
+                         │
+viewer/index.html ───────┼────► inject_data_script()
+                                        │
+                                        ▼
+                               temp/index.html
+                                        │
+                                        ▼
+                              浏览器打开 (os.startfile)
+
+```
+
+### 组件结构
+
+```
+App.tsx
+├── 日期选择器 (选择查看哪天的数据)
+├── 视图切换 (日/周/月)
+└── 图表区域
+    ├── HeatmapChart      # 热力图 (格子图)
+    ├── AppPieChart       # 应用时长饼图
+    └── AppBarChart       # 应用时长柱状图
+```
+
+---
+
+## 5. 打包与发布
+
+### 构建命令
+
+```bash
+# 完整构建
+python build.py --release
+
+# 跳过前端构建 (仅重打包 Python)
+python build.py --skip-frontend
+```
 
 ### 构建流程
 
-```bash
-cd frontend
-npm install
-npm run build  # 输出到 ../viewer/
-```
+1. **版本同步**: `build.py` 读取 `version.py`，同步到 `package.json`
+2. **前端构建**: `npm run build` → 输出到 `viewer/`，采用单文件模型，以避免跨域问题
+3. **Python 打包**: `PyInstaller` 打包为单文件 exe
+4. **生成发布**: 复制到 `release/pcstate-{版本}/`
 
-**Vite 配置** (`vite.config.ts`):
-```typescript
-{
-  base: './',           // 相对路径
-  build: {
-    outDir: '../viewer',
-    emptyOutDir: true,
-    assetsDir: 'assets'
-  }
-}
-```
-
-### 核心组件
-
-#### App.tsx
-
-**功能**:
-- 显示近14天活跃列表
-- 日期选择器
-- 活跃统计（小时/分钟）
-
-**布局**: 左侧日期列表 + 右侧热力图
-
-#### HeatmapChart.tsx
-
-**功能**: ECharts 绘制热力图
-
-**参数**:
-- `slots`: 288个槽位的活跃计数 (0-5)
-- `size`: 格子大小 (默认16px)
-- `dayStartHour`: 一天起始小时 (默认0)
-
-**配色**:
-```javascript
-const COLORS = ['#eee', '#cce5ff', '#99ccff', '#66b2ff', '#3399ff', '#007bff']
-//              空闲     1次      2次      3次      4次      5次+
-```
-
-**交互**: 鼠标悬停显示时间范围
-
----
-
-## 版本管理
-
-### 单点修改
-
-**所有版本号在根目录 `version.py` 统一管理**:
+### PyInstaller 配置
 
 ```python
-VERSION = "1.6.0.0"          # 4段版本号
-VERSION_PARTS = (1, 6, 0, 0)  # 用于Windows文件属性
-```
-
-### 自动同步
-
-`build.py` 在构建前端时自动同步版本号:
-
-```python
-def sync_frontend_version():
-    """将 version.py 的版本号同步到 package.json"""
-    # 1.6.0.0 -> 1.6.0 (去掉第4段)
-```
-
-**执行时机**: `python build.py` 构建前端前自动同步
-
----
-
-## 打包流程
-
-### 快速打包
-
-```bash
-python build.py --release
-```
-
-### 详细流程
-
-1. **清理**: 删除 `build/`, `dist/`, `*.spec`
-2. **构建前端**:
-   - 同步版本号到 `package.json`
-   - `npm install` (如果需要)
-   - `npm run build` → 输出到 `viewer/`
-3. **打包Python**:
-   - 生成 `build/version_info.txt` (Windows版本信息)
-   - PyInstaller打包 → `dist/PCStateMonitor.exe`
-4. **创建发布包**: 复制到 `release/pcstate-{VERSION}/`
-
-### PyInstaller参数
-
-```python
-pyinstaller \
-    --name=PCStateMonitor \
-    --onefile \              # 单文件
-    --windowed \             # 无控制台
-    --add-data=viewer;viewer \   # 前端构建产物
-    --add-data=src;src \         # Python模块
-    --icon=public/icon_active.ico \
-    --version-file=build/version_info.txt \
-    src/main.py
-```
-
-### 打包参数
-
-```bash
-python build.py              # 完整构建
-python build.py --skip-frontend  # 跳过前端构建
-python build.py --clean      # 仅清理
-python build.py --release    # 创建发布包
+--name=PCStateMonitor      # exe 名称
+--onefile                  # 单文件模式
+--windowed                 # 无控制台窗口
+--add-data=viewer;viewer   # 前端资源
+--add-data=src;src         # Python 模块
+--add-data=public;public   # 图标资源
 ```
 
 ---
 
-## 运行时文件
+## 6. 运行时文件
+
+程序运行后会产生以下文件：
 
 ```
 程序目录/
-├── pcstate.db          # SQLite 数据库（含记录数据和配置）
-├── temp/                # 临时文件
-│   ├── data.js         # 导出的数据
-│   ├── index.html      # 前端页面
-│   └── assets/         # 前端资源
-└── PCStateMonitor.exe
-```
-
-**路径计算**:
-```python
-# 开发环境
-base_dir = dirname(dirname(abspath(__file__)))
-
-# 打包后
-base_dir = dirname(sys.executable)
+├── pcstate.db          # SQLite 数据库 (活动记录 + 配置)
+├── temp/               # 临时目录
+│   ├── data.js        # 导出的数据 (JSON)
+│   ├── index.html     # 前端页面
+│   └── assets/        # 前端资源 (JS/CSS/图片)目前不使用这一项
+└── PCStateMonitor.exe # 主程序
 ```
 
 ---
 
-## 关键设计
+## 7. 关键设计决策
 
-### 1. 槽位统计
+### 7.1 为什么用 SQLite 而非文件？
 
-**定义**: 每天288个槽位（24h × 12槽/h），每槽代表5分钟
+- **查询效率**：按日期查询、聚合统计等操作更高效
+- **单文件**：数据库本身是单文件，便于携带
+- **原子性**：写入天然原子，无需额外处理
 
-**映射规则**:
-```python
-slot = hour * 12 + minute // 5  # 0-287
-slots[slot] = min(slots[slot] + 1, 5)  # 上限5次
-```
+### 7.2 为什么每分钟记录一次？
 
-**用途**: 前端热力图渲染，颜色深浅表示活跃程度
+- 时间粒度足够细，满足"查看一天用电脑情况"的需求
+- 存储空间友好 (每分钟1条，一年约 50万条，< 100MB)
 
----
+### 7.3 为什么用托盘而非窗口？
 
-### 2. 资源路径管理
+- 工具类应用，最小化到托盘最合适
+- 不影响用户正常使用其他应用
 
-**开发环境**:
-```python
-# 前端资源
-base_path = dirname(dirname(abspath(__file__)))
-icon_path = join(base_path, 'public', 'icon_active.ico')
+### 7.4 前端为什么用单文件输出？
 
-# 前端构建产物
-viewer_dir = join(base_path, 'viewer')
-```
-
-**打包后**:
-```python
-# 前端资源
-base_path = sys._MEIPASS  # PyInstaller临时目录
-icon_path = join(base_path, 'public', 'icon_active.ico')
-
-# 前端构建产物
-viewer_dir = join(sys._MEIPASS, 'viewer')
-```
+- 防止跨域问题
+- 浏览器直接打开 HTML 即可查看，无需启动服务器
 
 ---
 
-## 技术栈总结
+## 8. 开发指南
 
-**后端**:
-- Python 3.12+
-- pywin32 (Windows API)
-- winshell (开机启动管理)
-- PyInstaller (打包)
-- SQLite3 (数据库，标准库)
+### 本地运行
 
-**前端**:
-- React 18 + TypeScript
-- Vite 5
-- ECharts
+```bash
+# 安装依赖
+pip install -r requirements.txt
 
----
+# 启动程序
+python main.py
+```
 
-## 设计原则
+### 修改数据库结构
 
-1. **高内聚低耦合**: 模块职责单一
-2. **最小化实现**: 只实现必要功能，不过度设计
-3. **单点修改**: 版本号在根目录 `version.py` 统一管理
+修改 `sqlite.py` 中的表结构定义后，程序启动时会自动检测并迁移旧数据。
+
+### 添加新配置项
+
+1. 在 `sqlite.py` 的 `_init_db()` 中添加默认值
+2. 在 `config.py` 中添加 getter/setter 函数
+
+### 添加新图表
+
+1. 在 `frontend/src/components/` 中创建新组件
+2. 在 `App.tsx` 中引入并使用

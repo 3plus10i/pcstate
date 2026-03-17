@@ -28,6 +28,16 @@ def set_day_start_hour(hour: int) -> None:
     _get_backend().set_day_start_hour(hour)
 
 
+def get_timezone() -> int:
+    """获取时区偏移值"""
+    return _get_backend().get_timezone()
+
+
+def set_timezone(offset: int) -> None:
+    """设置时区偏移值"""
+    _get_backend().set_timezone(offset)
+
+
 if __name__ == '__main__':
     # 测试
     print(f"当前一天起始时间: {get_day_start_hour()}时")
