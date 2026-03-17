@@ -106,8 +106,8 @@ idle_seconds = (now - last_input) // 1000   # 转换为秒
 CREATE TABLE activity (
     time INTEGER PRIMARY KEY,       -- 分钟级时间戳 (Unix分钟数)
     is_active INTEGER NOT NULL,     -- 是否活跃 (0/1)
-    prog_name TEXT,                 -- 程序名 (存入时去除 .exe 后缀)
-    win_title TEXT                  -- 窗口标题 (存入时截断64字符)
+    prog_name TEXT,                 -- 程序名 (存入时去除 .exe 后缀，进程名为空时取标题前16字符)
+    win_title TEXT                  -- 窗口标题 (已废弃，不再记录数据，保留字段)
 );
 
 -- 配置表
@@ -119,8 +119,8 @@ CREATE TABLE config (
 
 **关键字段说明**：
 - `time`：1970-01-01 到该时刻的分钟数，作为主键可唯一确定一分钟
-- `prog_name`：如 `chrome.exe` 存入时变为 `chrome`
-- `win_title`：原始窗口标题，截断到64字符
+- `prog_name`：如 `chrome.exe` 存入时变为 `chrome`；若进程名为空则取窗口标题前16字符（用于反作弊游戏）
+- `win_title`：已废弃，不再记录数据，保留字段
 
 **核心接口**：
 

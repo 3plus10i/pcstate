@@ -210,15 +210,16 @@ class SQLiteStorage:
                             # is_active: count>0 则为活跃
                             is_active = 1 if count_val and count_val > 0 else 0
                             
-                            # prog_name: 去除.exe后缀
+                            # prog_name: 去除.exe后缀，若进程名为空则用标题前16字符
                             prog_name = ""
                             if process_name:
                                 prog_name = process_name[:-4] if process_name.lower().endswith('.exe') else process_name
+                            elif window_title:
+                                # 进程名为空时，用窗口标题前16字符作为prog_name
+                                prog_name = window_title[:16]
                             
-                            # win_title: 截断64字符
+                            # win_title不再记录，保留字段但写入空值
                             win_title = ""
-                            if window_title:
-                                win_title = window_title[:64]
                             
                             new_records.append((time_minutes, is_active, prog_name, win_title))
                         except Exception as e:
@@ -280,13 +281,16 @@ class SQLiteStorage:
         dt = datetime(target_date.year, target_date.month, target_date.day, hour, minute)
         time_minutes = int(dt.timestamp() // 60)
         
-        # 处理prog_name：去除.exe后缀
+        # 处理prog_name：去除.exe后缀，若进程名为空则用标题前16字符（处理反作弊游戏）
         prog_name = ""
         if process_name:
             prog_name = process_name[:-4] if process_name.lower().endswith('.exe') else process_name
-        
-        # 处理win_title：截断64字符
-        win_title = window_title[:64] if window_title else ""
+        elif window_title:
+            # 进程名为空时，用窗口标题前16字符作为prog_name
+            prog_name = window_title[:16]
+
+        # win_title不再记录，保留字段但写入空值
+        win_title = ""
 
         conn = sqlite3.connect(self._db_path)
         conn.execute('''

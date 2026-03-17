@@ -34,40 +34,10 @@ def get_recent_dates(days: int = 31) -> List[str]:
 
 def merge_hourly_data(app_hourly: List[dict], window_hourly: List[dict]) -> List[dict]:
     """
-    合并应用和窗口数据为活动应用
-    规则：如果进程名为空或无效，则使用窗口标题
-    
-    Args:
-        app_hourly: 基于进程名的每小时数据
-        window_hourly: 基于窗口标题的每小时数据
-    
-    Returns:
-        合并后的每小时数据
+    合并应用和窗口数据为活动应用（已废弃，不再使用window_hourly）
+    保留此函数以兼容旧代码调用，仅返回app_hourly
     """
-    merged = []
-    
-    for i in range(max(len(app_hourly), len(window_hourly))):
-        app_data = app_hourly[i] if i < len(app_hourly) else {}
-        window_data = window_hourly[i] if i < len(window_hourly) else {}
-        
-        hour_merged = {}
-        
-        # 添加所有应用数据（非空）
-        for app_name, value in app_data.items():
-            if app_name:  # 非空字符串
-                hour_merged[app_name] = hour_merged.get(app_name, 0) + value
-        
-        # 对于窗口数据，如果这一小时没有有效的应用名，使用窗口标题
-        has_valid_app = any(app for app in app_data.keys() if app)
-        
-        if not has_valid_app:
-            for window_name, value in window_data.items():
-                if window_name:  # 窗口标题非空
-                    hour_merged[window_name] = hour_merged.get(window_name, 0) + value
-        
-        merged.append(hour_merged)
-    
-    return merged
+    return app_hourly
 
 
 def export_data() -> str:
@@ -92,25 +62,20 @@ def export_data() -> str:
     for date_str in dates:
         target_date = datetime.strptime(date_str, '%Y%m%d').date()
         
-        # 获取每小时应用/窗口数据（原始数据）
+        # 获取每小时应用数据（已包含进程名为空时用标题前16字符的逻辑）
         hourly_app_durations = backend.get_hourly_app_durations(target_date)
-        hourly_window_durations = backend.get_hourly_window_durations(target_date)
-        
-        # 合并应用和窗口数据为活动应用
-        hourly_merged = merge_hourly_data(hourly_app_durations, hourly_window_durations)
         
         # 获取slots数据（自然日每5分钟的is_active之和）
         slots = backend.get_slots(target_date)
         
         # 检查是否有数据
-        has_data = any(len(hour_data) > 0 for hour_data in hourly_merged)
+        has_data = any(len(hour_data) > 0 for hour_data in hourly_app_durations)
 
         # 构建记录项
         record_item = {
             "date": date_str,
             "slots": slots,
-            "app_hourly": hourly_merged if has_data else [{} for _ in range(24)],
-            "window_hourly": hourly_window_durations if has_data else [{} for _ in range(24)],
+            "app_hourly": hourly_app_durations if has_data else [{} for _ in range(24)],
         }
         record_list.append(record_item)
 

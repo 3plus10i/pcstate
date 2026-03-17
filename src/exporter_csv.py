@@ -35,7 +35,7 @@ def query_activity_data(days: int) -> List[Tuple]:
         days: 查询最近多少天的数据
     
     Returns:
-        数据列表 [(time, is_active, prog_name, win_title), ...]
+        数据列表 [(time, is_active, prog_name), ...]
     """
     db_path = get_db_path()
     if not os.path.exists(db_path):
@@ -52,7 +52,7 @@ def query_activity_data(days: int) -> List[Tuple]:
     
     conn = sqlite3.connect(db_path)
     cursor = conn.execute(
-        'SELECT time, is_active, prog_name, win_title FROM activity WHERE time >= ? AND time <= ? ORDER BY time',
+        'SELECT time, is_active, prog_name FROM activity WHERE time >= ? AND time <= ? ORDER BY time',
         (start_time, end_time)
     )
     results = cursor.fetchall()
@@ -104,14 +104,14 @@ def export_to_csv(days: int) -> Optional[str]:
     with open(filepath, 'w', newline='', encoding='utf-8-sig') as f:
         writer = csv.writer(f)
         # 写入表头
-        writer.writerow(['time', 'is_active', 'prog_name', 'win_title'])
+        writer.writerow(['time', 'is_active', 'prog_name'])
         
         # 写入数据
         for row in results:
-            time_minutes, is_active, prog_name, win_title = row
+            time_minutes, is_active, prog_name = row
             # 格式化时间
             formatted_time = format_time(time_minutes)
-            writer.writerow([formatted_time, is_active, prog_name, win_title])
+            writer.writerow([formatted_time, is_active, prog_name])
     
     print(f"已导出 {len(results)} 条记录到: {filepath}")
     return filepath
