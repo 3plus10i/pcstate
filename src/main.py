@@ -19,6 +19,7 @@ import win32con
 from src import idle_detector, startup_manager, config
 from version import VERSION
 from src.exporter import export_data, get_viewer_files
+from src.exporter_csv import export_to_csv
 from src.utils import get_script_dir
 
 
@@ -72,6 +73,12 @@ def wnd_proc(hwnd, msg, wparam, lparam):
             config.set_day_start_hour(0)
         elif cmd == 1011:  # 凌晨4时
             config.set_day_start_hour(4)
+        elif cmd == 1020:  # 导出CSV - 最近7天
+            _do_export_csv(7)
+        elif cmd == 1021:  # 导出CSV - 最近30天
+            _do_export_csv(30)
+        elif cmd == 1022:  # 导出CSV - 最近90天
+            _do_export_csv(90)
 
     elif msg == win32con.WM_DESTROY:
         running = False
@@ -133,6 +140,18 @@ def toggle_startup():
         startup_manager.add_to_startup()
 
 
+def _do_export_csv(days: int):
+    """执行CSV导出"""
+    try:
+        filepath = export_to_csv(days)
+        if filepath:
+            # 打开导出目录
+            export_dir = os.path.dirname(filepath)
+            os.startfile(export_dir)
+    except Exception as e:
+        print(f"导出CSV失败: {e}")
+
+
 def show_menu(hwnd):
     """显示托盘菜单"""
     menu = win32gui.CreatePopupMenu()
@@ -158,6 +177,14 @@ def show_menu(hwnd):
     win32gui.AppendMenu(menu, win32con.MF_SEPARATOR, 0, "")
     win32gui.AppendMenu(menu, win32con.MF_STRING, 1001, "查看报表")
     win32gui.AppendMenu(menu, win32con.MF_STRING, 1003, "打开程序目录")
+    
+    # 导出CSV子菜单
+    export_submenu = win32gui.CreatePopupMenu()
+    win32gui.AppendMenu(export_submenu, win32con.MF_STRING, 1020, "最近7天")
+    win32gui.AppendMenu(export_submenu, win32con.MF_STRING, 1021, "最近30天")
+    win32gui.AppendMenu(export_submenu, win32con.MF_STRING, 1022, "最近90天")
+    win32gui.AppendMenu(menu, win32con.MF_POPUP, export_submenu, "导出CSV")
+    
     win32gui.AppendMenu(menu, win32con.MF_SEPARATOR, 0, "")
     win32gui.AppendMenu(menu, win32con.MF_STRING, 1004, "退出")
 
