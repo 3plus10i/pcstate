@@ -134,12 +134,8 @@ backend.read_by_date(target_date)
 # 获取某天的应用时长 {app_name: 分钟数}
 backend.get_app_durations(target_date)
 
-# 获取某天的窗口时长 {window_title: 分钟数}
-backend.get_window_durations(target_date)
-
-# 获取每小时的应用/窗口数据 (用于前端图表)
+# 获取每小时的应用数据 (用于前端图表)
 backend.get_hourly_app_durations(target_date)  # List[dict]
-backend.get_hourly_window_durations(target_date)
 
 # 获取每5分钟的槽位数据 (288个元素，每个0-5)
 backend.get_slots(target_date)

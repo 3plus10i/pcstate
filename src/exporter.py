@@ -32,13 +32,6 @@ def get_recent_dates(days: int = 31) -> List[str]:
         dates.append(d.strftime('%Y%m%d'))  # 格式改为 YYYYMMDD
     return dates
 
-def merge_hourly_data(app_hourly: List[dict], window_hourly: List[dict]) -> List[dict]:
-    """
-    合并应用和窗口数据为活动应用（已废弃，不再使用window_hourly）
-    保留此函数以兼容旧代码调用，仅返回app_hourly
-    """
-    return app_hourly
-
 
 def export_data() -> str:
     """

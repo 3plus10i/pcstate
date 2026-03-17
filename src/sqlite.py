@@ -3,7 +3,7 @@
 """
 
 import os
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import List, Optional
 import sqlite3
 from src.utils import get_script_dir
@@ -53,8 +53,6 @@ class SQLiteStorage:
     
     def _cleanup_old_data(self) -> None:
         """清理旧数据"""
-        from datetime import datetime
-        
         cutoff_date = date.today() - timedelta(days=self.CLEANUP_DAYS)
         # 计算截止日期0:00的分钟时间戳
         cutoff_dt = datetime(cutoff_date.year, cutoff_date.month, cutoff_date.day, 0, 0)
@@ -191,7 +189,6 @@ class SQLiteStorage:
                     old_data = [(row[0], row[1], 1, None, None) for row in cursor]
                 
                 if old_data:
-                    from datetime import datetime
                     new_records = []
                     
                     for row in old_data:
@@ -277,7 +274,6 @@ class SQLiteStorage:
             target_date = date.today()
         
         # 计算分钟时间戳：从指定日期的hour:minute到1970-01-01的分钟数
-        from datetime import datetime
         dt = datetime(target_date.year, target_date.month, target_date.day, hour, minute)
         time_minutes = int(dt.timestamp() // 60)
         
@@ -305,7 +301,6 @@ class SQLiteStorage:
         conn.close()
 
     def read_by_date(self, target_date: date) -> List[str]:
-        from datetime import datetime
         # 计算目标日期的时间范围（分钟时间戳）
         start_dt = datetime(target_date.year, target_date.month, target_date.day, 0, 0)
         end_dt = datetime(target_date.year, target_date.month, target_date.day, 23, 59)
@@ -338,8 +333,6 @@ class SQLiteStorage:
         Returns:
             字典，key为应用名，value为活跃分钟数
         """
-        
-        from datetime import datetime
         # 计算目标日期的时间范围（分钟时间戳）
         start_dt = datetime(target_date.year, target_date.month, target_date.day, 0, 0)
         end_dt = datetime(target_date.year, target_date.month, target_date.day, 23, 59)
@@ -363,41 +356,6 @@ class SQLiteStorage:
         conn.close()
         return app_durations
 
-    def get_window_durations(self, target_date: date) -> dict:
-        """获取窗口时长数据（原始数据，不受day_start_hour影响）
-        
-        Args:
-            target_date: 目标日期
-        
-        Returns:
-            字典，key为窗口标题，value为活跃分钟数
-        """
-        
-        from datetime import datetime
-        # 计算目标日期的时间范围（分钟时间戳）
-        start_dt = datetime(target_date.year, target_date.month, target_date.day, 0, 0)
-        end_dt = datetime(target_date.year, target_date.month, target_date.day, 23, 59)
-        start_time = int(start_dt.timestamp() // 60)
-        end_time = int(end_dt.timestamp() // 60)
-
-        window_durations = {}
-        conn = sqlite3.connect(self._db_path)
-        cursor = conn.execute(
-            'SELECT time, win_title, is_active FROM activity WHERE time >= ? AND time <= ?',
-            (start_time, end_time)
-        )
-        for row in cursor:
-            win_title = row[1] or ''
-            is_active = row[2]
-            
-            if is_active and win_title:
-                if win_title not in window_durations:
-                    window_durations[win_title] = 0
-                window_durations[win_title] += 1
-        conn.close()
-
-        return window_durations
-
     def get_hourly_app_durations(self, target_date: date) -> List[dict]:
         """获取每小时的应用时长数据（原始数据，不受day_start_hour影响）
         
@@ -407,8 +365,6 @@ class SQLiteStorage:
         Returns:
             24个元素的列表，每个元素是一个字典，key为应用名，value为该小时内的活跃分钟数
         """
-        
-        from datetime import datetime
         # 计算目标日期的时间范围（分钟时间戳）
         start_dt = datetime(target_date.year, target_date.month, target_date.day, 0, 0)
         end_dt = datetime(target_date.year, target_date.month, target_date.day, 23, 59)
@@ -436,44 +392,6 @@ class SQLiteStorage:
         
         return hourly_data
 
-    def get_hourly_window_durations(self, target_date: date) -> List[dict]:
-        """获取每小时的窗口时长数据（原始数据，不受day_start_hour影响）
-        
-        Args:
-            target_date: 目标日期
-        
-        Returns:
-            24个元素的列表，每个元素是一个字典，key为窗口标题，value为该小时内的活跃分钟数
-        """
-        
-        from datetime import datetime
-        # 计算目标日期的时间范围（分钟时间戳）
-        start_dt = datetime(target_date.year, target_date.month, target_date.day, 0, 0)
-        end_dt = datetime(target_date.year, target_date.month, target_date.day, 23, 59)
-        start_time = int(start_dt.timestamp() // 60)
-        end_time = int(end_dt.timestamp() // 60)
-
-        hourly_data = [{} for _ in range(24)]
-        conn = sqlite3.connect(self._db_path)
-        cursor = conn.execute(
-            'SELECT time, win_title, is_active FROM activity WHERE time >= ? AND time <= ?',
-            (start_time, end_time)
-        )
-        for row in cursor:
-            ts = row[0] * 60  # 转回秒时间戳
-            dt = datetime.fromtimestamp(ts)
-            hour = dt.hour
-            win_title = row[1] or ''
-            is_active = row[2]
-            
-            if is_active and win_title and 0 <= hour < 24:
-                if win_title not in hourly_data[hour]:
-                    hourly_data[hour][win_title] = 0
-                hourly_data[hour][win_title] += 1
-        conn.close()
-        
-        return hourly_data
-
     def get_slots(self, target_date: date) -> List[int]:
         """获取自然日每5分钟的活跃槽位数据
         
@@ -483,8 +401,6 @@ class SQLiteStorage:
         Returns:
             288个整数的列表，每个值表示对应5分钟区间内的活跃分钟数（0-5）
         """
-        
-        from datetime import datetime
         # 计算目标日期的时间范围（分钟时间戳）
         start_dt = datetime(target_date.year, target_date.month, target_date.day, 0, 0)
         end_dt = datetime(target_date.year, target_date.month, target_date.day, 23, 59)
