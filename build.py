@@ -127,6 +127,7 @@ def build_exe():
         '--hidden-import=win32con',
         '--hidden-import=winshell',
         '--hidden-import=win32com.client',
+        '--hidden-import=win11toast',
         '--icon=public/icon_active.ico',
         f'--version-file={version_file}',
         'src/main.py'

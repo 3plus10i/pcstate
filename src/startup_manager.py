@@ -19,9 +19,42 @@ def get_shortcut_path():
     return os.path.join(startup_dir, 'PCStateMonitor.lnk')
 
 
+def get_current_program_path():
+    """获取当前程序路径"""
+    if getattr(sys, 'frozen', False):
+        return sys.executable
+    else:
+        return os.path.abspath(sys.argv[0])
+
+
+def get_shortcut_target():
+    """获取快捷方式指向的目标路径，不存在则返回 None"""
+    shortcut_path = get_shortcut_path()
+    if not os.path.exists(shortcut_path):
+        return None
+    try:
+        shell = Dispatch('WScript.Shell')
+        shortcut = shell.CreateShortCut(shortcut_path)
+        return shortcut.Targetpath
+    except Exception:
+        return None
+
+
 def is_startup_enabled():
-    """检查是否已设置开机启动"""
-    return os.path.exists(get_shortcut_path())
+    """检查是否已设置开机启动，如果快捷方式指向错误则自动修复"""
+    shortcut_path = get_shortcut_path()
+    if not os.path.exists(shortcut_path):
+        return False
+    
+    current_path = get_current_program_path()
+    target_path = get_shortcut_target()
+    
+    # 快捷方式存在但指向不正确，修复它
+    if target_path and os.path.normpath(target_path) != os.path.normpath(current_path):
+        print(f"检测到快捷方式指向旧版本，正在修复: {target_path} -> {current_path}")
+        add_to_startup()
+    
+    return True
 
 
 def add_to_startup():

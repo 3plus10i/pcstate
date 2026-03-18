@@ -16,7 +16,7 @@ import win32api
 import win32gui
 import win32con
 
-from src import idle_detector, startup_manager, config
+from src import idle_detector, startup_manager, config, notifier
 from version import VERSION
 from src.exporter import export_data, get_viewer_files
 from src.exporter_csv import export_to_csv
@@ -247,6 +247,12 @@ def main():
     """主函数"""
     global hwnd
     print(f"PCState启动: {platform.node()}，版本 {VERSION}")
+    
+    # 发送启动通知
+    notifier.show_notification(
+        "PCState 已启动",
+        "正在后台记录PC活跃状态"
+    )
     
     # 程序启动时检查并清理旧数据
     try:

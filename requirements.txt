@@ -1,4 +1,5 @@
 pywin32>=306
 winshell>=0.6
+win11toast>=0.35
 
 
