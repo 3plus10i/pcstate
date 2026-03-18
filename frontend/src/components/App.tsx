@@ -552,7 +552,10 @@ export function App() {
                         </div>
                       )}
                       {chartType === 'monthbar' && (
-                        <div style={{ width: '100%', padding: '20px' }}>
+                        <div style={{
+                          width: Math.max(monthDays.length * 30, 800),  // 确保宽度
+                          padding: '20px'
+                        }}>
                           <MonthlyAppBarChart 
                             hourlyAppData={monthHourlyAppData}
                             days={monthDays}

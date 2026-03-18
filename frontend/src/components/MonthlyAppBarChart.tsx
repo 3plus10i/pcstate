@@ -103,7 +103,7 @@ export function MonthlyAppBarChart({ hourlyAppData, days, monthAppTotals, daySta
       const dateStr = day.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3')
       const d = new Date(dateStr + 'T00:00:00')
       const weekDays = ['日', '一', '二', '三', '四', '五', '六']
-      return `${d.getMonth() + 1}/${d.getDate()}\n${weekDays[d.getDay()]}`
+      return `${d.getMonth() + 1}/${d.getDate()}(${weekDays[d.getDay()]})`
     })
 
     const option: echarts.EChartsOption = {
@@ -120,7 +120,7 @@ export function MonthlyAppBarChart({ hourlyAppData, days, monthAppTotals, daySta
           color: 'rgba(0,0,0,0.85)'
         },
         padding: [8, 12],
-        formatter: (params: any[]) => {
+        formatter: (params: any) => {
           if (!params || params.length === 0) return ''
           
           const dayIndex = params[0].dataIndex
@@ -128,7 +128,7 @@ export function MonthlyAppBarChart({ hourlyAppData, days, monthAppTotals, daySta
           let totalMinutes = 0
           const appData: { app: string; minutes: number; color: string }[] = []
           
-          params.forEach(param => {
+          params.forEach((param: any) => {
             const minutes = param.value
             totalMinutes += minutes
             if (minutes > 0) {
@@ -183,6 +183,7 @@ export function MonthlyAppBarChart({ hourlyAppData, days, monthAppTotals, daySta
         type: 'category',
         data: xAxisData,
         axisLabel: {
+          rotate: 45,
           fontSize: 11,
           color: 'rgba(0,0,0,0.65)',
           lineHeight: 16,
