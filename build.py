@@ -1,5 +1,5 @@
 """
-打包脚本 - 使用 PyInstaller 生成可执行文件
+打包脚本 - 使用 PyInstaller/Nuitka 生成可执行文件
 """
 import subprocess
 import sys
@@ -7,6 +7,10 @@ import os
 import shutil
 
 from version import VERSION, VERSION_PARTS, COMPANY_NAME, FILE_DESCRIPTION, PRODUCT_NAME, COPYRIGHT
+
+# ========== 构建开关 ==========
+# 实测不如直接pyinstaller
+NUITKA = False  # True: 使用Nuitka编译, False: 使用PyInstaller打包
 
 
 def generate_version_info():
@@ -92,7 +96,11 @@ def build_frontend():
 
 def clean_build():
     """清理构建文件"""
-    for dir_name in ['build', 'dist']:
+    dirs_to_clean = ['build', 'dist']
+    if NUITKA:
+        dirs_to_clean.append('nuitka')
+    
+    for dir_name in dirs_to_clean:
         if os.path.exists(dir_name):
             shutil.rmtree(dir_name)
             print(f"已删除: {dir_name}/")
@@ -104,7 +112,7 @@ def clean_build():
 
 
 def build_exe():
-    """打包可执行文件"""
+    """打包可执行文件 (PyInstaller)"""
     version_file = generate_version_info()
 
     try:
@@ -143,6 +151,59 @@ def build_exe():
         sys.exit(1)
 
 
+def build_exe_nuitka():
+    """编译可执行文件 (Nuitka)"""
+    try:
+        import nuitka
+    except ImportError:
+        print("安装 Nuitka...")
+        subprocess.run([sys.executable, '-m', 'pip', 'install', 'nuitka'], check=True)
+
+    print("Nuitka编译中... (首次编译可能需要5-10分钟)")
+    
+    # Nuitka 参数
+    args = [
+        sys.executable, '-m', 'nuitka',
+        '--standalone',                    # 独立部署
+        '--onefile',                       # 单文件输出
+        '--windows-console-mode=disable',  # 禁用控制台窗口
+        '--windows-icon-from-ico=public/icon_active.ico',
+        '--output-dir=nuitka',             # 输出目录
+        '--output-filename=PCStateMonitor.exe',
+        
+        # 包含数据目录
+        '--include-data-dir=viewer=viewer',
+        '--include-data-dir=public=public',
+        '--include-data-dir=src=src',
+        
+        # 导入跟踪
+        '--follow-imports',
+        
+        # 产品信息
+        f'--company-name={COMPANY_NAME}',
+        f'--product-name={PRODUCT_NAME}',
+        f'--file-version={VERSION}',
+        f'--product-version={VERSION}',
+        f'--file-description={FILE_DESCRIPTION}',
+        
+        # 主程序入口
+        'src/main.py'
+    ]
+
+    result = subprocess.run(args)
+
+    if result.returncode == 0:
+        exe_path = os.path.join('nuitka', 'PCStateMonitor.exe')
+        if os.path.exists(exe_path):
+            print(f"\n编译成功! 输出: {exe_path}")
+            print(f"文件大小: {os.path.getsize(exe_path) / 1024 / 1024:.2f} MB")
+        else:
+            print(f"\n编译完成，但未找到输出文件")
+    else:
+        print("\n编译失败!")
+        sys.exit(1)
+
+
 def create_release():
     """创建发布包"""
     release_dir = f'release/pcstate-{VERSION}'
@@ -150,7 +211,13 @@ def create_release():
         shutil.rmtree(release_dir)
     os.makedirs(release_dir)
 
-    shutil.copy('dist/PCStateMonitor.exe', release_dir)
+    # 根据构建方式选择源文件路径
+    if NUITKA:
+        exe_path = 'nuitka/PCStateMonitor.exe'
+    else:
+        exe_path = 'dist/PCStateMonitor.exe'
+    
+    shutil.copy(exe_path, release_dir)
     if os.path.exists('README.md'):
         shutil.copy('README.md', release_dir)
 
@@ -182,6 +249,18 @@ if __name__ == '__main__':
         clean_build()
         if not args.skip_frontend:
             build_frontend()
-        build_exe()
+        
+        # 根据开关选择构建方式
+        if NUITKA:
+            print(f"\n{'='*50}")
+            print("使用 Nuitka 编译 (实验性)")
+            print(f"{'='*50}\n")
+            build_exe_nuitka()
+        else:
+            print(f"\n{'='*50}")
+            print("使用 PyInstaller 打包")
+            print(f"{'='*50}\n")
+            build_exe()
+        
         if args.release:
             create_release()

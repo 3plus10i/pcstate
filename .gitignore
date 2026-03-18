@@ -13,3 +13,4 @@ viewer/
 *.db
 dev/
 PCState-export
+nuitka
