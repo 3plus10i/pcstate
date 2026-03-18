@@ -87,7 +87,7 @@ export function useReportState(pcStateData: PcStateData): ReportState {
     return CHART_TYPE_MAP[newViewMode][baseType]
   }, [])
 
-  // 2. 派生数据：图表数据
+  // 2. 派生数据：日图表数据
   const processedData = useMemo(() => {
     if (!pcStateData || viewMode !== 'day') return null
     return getProcessedRecord(pcStateData, selectedDate)
@@ -107,35 +107,36 @@ export function useReportState(pcStateData: PcStateData): ReportState {
 
   // 5. 派生数据：活跃时间统计
   const { activeSlots, activeHours, activeMins } = useMemo(() => {
-    if (viewMode === 'week') {
-      // 周视图的活跃时间统计
+    let activeSlots = 0
+    let activeHours = 0
+    let activeMins = 0
+    
+    if (viewMode === 'day') {
+      // 日视图：288个小格，每个小格=5分钟
+      const slots = processedData?.slots || []
+      activeSlots = slots.filter(v => v > 0).length
+      const activeMinutes = slots.reduce((sum, v) => sum + v, 0)
+      activeHours = Math.floor(activeMinutes / 60)
+      activeMins = activeMinutes % 60
+    }
+    else if (viewMode === 'week') {
+      // 周视图：7×24=168个小格，每个小格=1小时
       const activity = processedWeekData?.hourlyActivity || []
+      activeSlots = activity.reduce((sum, day) => sum + day.filter(h => h > 0).length, 0)
       const totalMinutes = activity.reduce((sum, day) => sum + day.reduce((dSum, h) => dSum + h, 0), 0)
-      const hours = Math.floor(totalMinutes / 60)
-      const mins = totalMinutes % 60
-      return {
-        activeSlots: 0,
-        activeHours: hours,
-        activeMins: mins
-      }
+      activeHours = Math.floor(totalMinutes / 60)
+      activeMins = totalMinutes % 60
     } else if (viewMode === 'month') {
-      // 月视图的活跃时间统计
+      // 月视图：30×24=720个小格，每个小格=1小时
       const activity = processedMonthData?.hourlyActivity || []
+      activeSlots = activity.reduce((sum, day) => sum + day.filter(h => h > 0).length, 0)
       const totalMinutes = activity.reduce((sum, day) => sum + day.reduce((dSum, h) => dSum + h, 0), 0)
-      const hours = Math.floor(totalMinutes / 60)
-      const mins = totalMinutes % 60
-      return {
-        activeSlots: 0,
-        activeHours: hours,
-        activeMins: mins
-      }
+      activeHours = Math.floor(totalMinutes / 60)
+      activeMins = totalMinutes % 60
+    } else {
+      throw new Error(`Invalid viewMode: ${viewMode}`)
     }
     
-    const slots = processedData?.slots || []
-    const activeSlots = slots.filter(v => v > 0).length
-    const activeMinutes = activeSlots * 5
-    const activeHours = Math.floor(activeMinutes / 60)
-    const activeMins = activeMinutes % 60
     return { activeSlots, activeHours, activeMins }
   }, [processedData, processedWeekData, processedMonthData, viewMode])
 
@@ -197,15 +198,19 @@ export function useReportState(pcStateData: PcStateData): ReportState {
     }
 
     const timeInfo = activeHours === 0
-      ? `活跃时间${activeMins}分钟`
-      : `活跃时间${activeHours}小时${activeMins}分钟`
+      ? `${activeMins}分钟`
+      : `${activeHours}小时${activeMins}分钟`
+
+    // 计算总格子数（常量）
+    const totalSlots = viewMode === 'day' ? 288 : viewMode === 'week' ? 168 : 720
+    const activePercent = totalSlots > 0 ? Math.round(activeSlots / totalSlots * 100) : 0
 
     if (viewMode === 'day') {
       switch (chartType) {
         case 'heatmap':
           return {
-            main: '活跃热力图：每个小格表示5分钟，格子颜色越深表示越繁忙。',
-            timeInfo: `${timeInfo}，已点亮${activeSlots}个小格`,
+            main: '日活跃热力图：展示本日每5分钟的活跃度。每个小格表示5分钟，格子颜色越深表示越繁忙。',
+            timeInfo: `本日已点亮${activeSlots}个小格（${activePercent}%），本日活跃时长：${timeInfo}`,
             additional: pcStateData.day_start_hour > 0 
               ? `当前一天起始时间：凌晨${pcStateData.day_start_hour}时（带*号表示次日时间）`
               : undefined
@@ -213,14 +218,14 @@ export function useReportState(pcStateData: PcStateData): ReportState {
         
         case 'apppie':
           return {
-            main: '应用时长饼图：展示不同应用的活跃时长占比，5%以上有图例，5%以下合并到"其他"。',
-            timeInfo
+            main: '日活跃应用饼图：展示本日主要应用的活跃时长占比。',
+            timeInfo: `本日活跃时长：${timeInfo}`
           }
         
         case 'bar':
           return {
-            main: '应用时长柱状图：显示每个小时内不同应用的活跃时长，便于对比。每小时内显示时长前5的应用，其余合并到"其他"。',
-            timeInfo
+            main: '日活跃应用柱状图：展示本日每个小时的主要应用活跃时长堆叠柱状图。',
+            timeInfo: `本日活跃时长：${timeInfo}`
           }
       }
     } else if (viewMode === 'week') {
@@ -231,20 +236,20 @@ export function useReportState(pcStateData: PcStateData): ReportState {
       switch (chartType) {
         case 'weekheatmap':
           return {
-            main: `周活跃热力图：显示${dateRange}期间每小时的活跃度（0-60分钟），颜色越深表示越活跃。`,
-            timeInfo
+            main: `周活跃热力图：展示 ${dateRange} 期间每小时的活跃度。每个小格表示1小时，格子颜色越深表示越繁忙。`,
+            timeInfo: `已点亮${activeSlots}个小格（${activePercent}%），7天活跃时长：${timeInfo}`
           }
         
         case 'weekapppie':
           return {
-            main: `周活跃应用时长饼图：展示${dateRange}期间不同应用的活跃时长总占比，5%以下合并到"其他"。`,
-            timeInfo
+            main: `周活跃应用饼图：展示 ${dateRange} 期间主要活跃应用的总活跃时长比例。`,
+            timeInfo: `7天活跃时长：${timeInfo}`
           }
         
         case 'weekbar':
           return {
-            main: `周活跃应用时长柱状图：显示${dateRange}期间每天的应用活跃时长堆叠情况，便于对比每日使用模式。`,
-            timeInfo
+            main: `周活跃应用柱状图：展示 ${dateRange} 期间每天的主要应用活跃时长堆叠柱状图。`,
+            timeInfo: `7天活跃时长：${timeInfo}`
           }
       }
     } else if (viewMode === 'month') {
@@ -255,20 +260,20 @@ export function useReportState(pcStateData: PcStateData): ReportState {
       switch (chartType) {
         case 'monthheatmap':
           return {
-            main: `月活跃热力图：显示${dateRange}期间每小时的活跃度（0-60分钟），颜色越深表示越活跃。`,
-            timeInfo
+            main: `月活跃热力图：展示 ${dateRange} 期间每小时的活跃度。每个小格表示1小时，格子颜色越深表示越繁忙。`,
+            timeInfo: `已点亮${activeSlots}个小格（${activePercent}%），30天活跃时长：${timeInfo}`
           }
         
         case 'monthapppie':
           return {
-            main: `月活跃应用时长饼图：展示${dateRange}期间不同应用的活跃时长总占比，5%以下合并到"其他"。`,
-            timeInfo
+            main: `月活跃应用饼图：展示 ${dateRange} 期间主要活跃应用的总活跃时长比例。`,
+            timeInfo: `30天活跃时长：${timeInfo}`
           }
         
         case 'monthbar':
           return {
-            main: `月活跃应用时长柱状图：显示${dateRange}期间每天的应用活跃时长堆叠情况，便于对比每日使用模式。`,
-            timeInfo
+            main: `月活跃应用柱状图：展示 ${dateRange} 期间每天的主要应用活跃时长堆叠柱状图。`,
+            timeInfo: `30天活跃时长：${timeInfo}`
           }
       }
     }

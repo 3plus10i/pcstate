@@ -37,9 +37,10 @@ const COLORS = ['#eee', ...interpolateColor('#cce5ff', '#007bff', 60)]
 const BORDER_COLOR = COLORS[COLORS.length - 1]  // 最蓝的颜色
 const ROWS = 7  // 7天
 const COLS = 24  // 24小时
-const SIZE = 24
+// 与日视图保持一致的格子尺寸
+const SIZE = 20
 const GAP = 2
-const PADDING = 16
+const PADDING = 10
 
 function calculatePositions(count: number, size: number, gap: number): number[] {
   const positions = [0]

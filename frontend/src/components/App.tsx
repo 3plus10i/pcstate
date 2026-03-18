@@ -120,9 +120,13 @@ export function App() {
     ? (monthHourlyActivity.some(day => day.some(h => h > 0)))
     : ((processedData?.slots?.filter(v => v > 0).length || 0) > 0)
 
+
+
   return (
+
     <div style={{ padding: '40px 20px', minHeight: '100vh', background: '#f0f2f5' }}>
-      <div style={{ maxWidth: '60vw', margin: '0 auto', minWidth: '900px' }}>
+
+      <div style={{ display: 'flex', flexDirection: 'column', margin: '0 auto', width: 'fit-content', minWidth: '900px' }}>
         {/* 顶部标题栏 */}
         <div style={{
           background: '#fff',

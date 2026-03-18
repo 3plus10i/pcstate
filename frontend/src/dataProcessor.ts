@@ -203,22 +203,22 @@ export function formatDuration(minutes: number): string {
   return `${minutes}min`
 }
 
-function getAdjustedHourlyData(record: DayRecord | null, dayStartHour: number): Record<string, number>[] {
-  if (!record) return new Array(24).fill({})
+// function getAdjustedHourlyData(record: DayRecord | null, dayStartHour: number): Record<string, number>[] {
+//   if (!record) return new Array(24).fill({})
   
-  // 处理应用和窗口数据
-  const appHourly = processHourlyData(record.app_hourly || [])
-  const windowHourly = processHourlyData(record.window_hourly || [])
-  const merged = mergeHourlyData(appHourly, windowHourly)
+//   // 处理应用和窗口数据
+//   const appHourly = processHourlyData(record.app_hourly || [])
+//   const windowHourly = processHourlyData(record.window_hourly || [])
+//   const merged = mergeHourlyData(appHourly, windowHourly)
   
-  // 如果dayStartHour > 0，需要调整数据顺序
-  if (dayStartHour > 0) {
-    const adjusted = [...merged.slice(dayStartHour), ...merged.slice(0, dayStartHour)]
-    return adjusted
-  }
+//   // 如果dayStartHour > 0，需要调整数据顺序
+//   if (dayStartHour > 0) {
+//     const adjusted = [...merged.slice(dayStartHour), ...merged.slice(0, dayStartHour)]
+//     return adjusted
+//   }
   
-  return merged
-}
+//   return merged
+// }
 
 function getDayRecord(data: PcStateData, date: Date): DayRecord | null {
   const dateStr = formatDateToYYYYMMDD(date)
