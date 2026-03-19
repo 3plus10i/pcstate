@@ -242,7 +242,7 @@ export function HeatmapChart({ values, size = SIZE, dayStartHour = 0, showLabels
             <div key={row} style={{
               position: 'absolute',
               left: -40,
-              top: PADDING + cellY[row] + 8,
+              top: PADDING + cellY[row],
               fontSize: 11,
               color: 'rgba(0,0,0,0.45)',
               textAlign: 'right',

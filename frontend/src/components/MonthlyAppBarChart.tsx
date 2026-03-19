@@ -84,7 +84,7 @@ export function MonthlyAppBarChart({ hourlyAppData, days, monthAppTotals, daySta
     ]
     
     const seriesData = apps.map((app, index) => {
-      const data = dailyAppTotals.map(dayTotals => dayTotals[app] || 0)
+      const data = dailyAppTotals.map(dayTotals => (dayTotals[app] || 0) / 60)
       return {
         name: app,
         type: 'bar' as const,
@@ -125,32 +125,30 @@ export function MonthlyAppBarChart({ hourlyAppData, days, monthAppTotals, daySta
           
           const dayIndex = params[0].dataIndex
           const dayLabel = xAxisData[dayIndex]
-          let totalMinutes = 0
-          const appData: { app: string; minutes: number; color: string }[] = []
-          
+          let totalHours = 0
+          const appData: { app: string; hours: number; color: string }[] = []
+
           params.forEach((param: any) => {
-            const minutes = param.value
-            totalMinutes += minutes
-            if (minutes > 0) {
+            const hours = param.value
+            totalHours += hours
+            if (hours > 0) {
               appData.push({
                 app: param.seriesName,
-                minutes,
+                hours,
                 color: param.color
               })
             }
           })
-          
+
           // 按时长排序
-          appData.sort((a, b) => b.minutes - a.minutes)
-          
+          appData.sort((a, b) => b.hours - a.hours)
+
           let html = `<div style="font-weight: bold; margin-bottom: 8px;">${dayLabel}</div>`
-          html += `<div style="margin-bottom: 4px;">总计: ${Math.floor(totalMinutes / 60)}h${totalMinutes % 60}m</div>`
-          
+          html += `<div style="margin-bottom: 4px;">总计: ${totalHours.toFixed(1)}h</div>`
+
           appData.forEach(item => {
-            const hours = Math.floor(item.minutes / 60)
-            const mins = item.minutes % 60
-            const timeStr = hours > 0 ? `${hours}h${mins}m` : `${mins}m`
-            const percentage = totalMinutes > 0 ? Math.round(item.minutes / totalMinutes * 100) : 0
+            const timeStr = item.hours >= 1 ? `${item.hours.toFixed(1)}h` : `${Math.round(item.hours * 60)}m`
+            const percentage = totalHours > 0 ? Math.round(item.hours / totalHours * 100) : 0
             
             html += `<div style="margin: 2px 0;">
               <span style="display: inline-block; width: 10px; height: 10px; background: ${item.color}; border-radius: 2px; margin-right: 6px;"></span>
@@ -202,14 +200,15 @@ export function MonthlyAppBarChart({ hourlyAppData, days, monthAppTotals, daySta
       },
       yAxis: {
         type: 'value',
-        name: '分钟',
+        name: '小时',
         nameTextStyle: {
           fontSize: 12,
           color: 'rgba(0,0,0,0.65)'
         },
         axisLabel: {
           fontSize: 11,
-          color: 'rgba(0,0,0,0.65)'
+          color: 'rgba(0,0,0,0.65)',
+          formatter: (value: number) => value.toString()
         },
         axisLine: {
           lineStyle: {

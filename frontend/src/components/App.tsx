@@ -98,7 +98,7 @@ export function App() {
 
   const values = processedData?.slots || []
   const appHourly = processedData?.appHourly || []
-  const appData = processedData?.appTotals || {}
+  const appData = processedData?.dayAppTotals || {}
   const hourlyAppData = appHourly
   const dayStartHour = pcStateData?.day_start_hour || 0
   
@@ -285,49 +285,54 @@ export function App() {
                 时长区间选择
               </div>
               <div style={{
-                background: '#fff',
-                borderRadius: 4,
-                border: '1px solid #d9d9d9',
-                overflow: 'hidden'
+                display: 'flex',
+                gap: 8,
+                width: '100%'
               }}>
                 <div
-                  onClick={() => {
-                    setViewMode('day')
-                  }}
+                  onClick={() => setViewMode('day')}
                   style={{
+                    flex: 1,
                     padding: '8px 12px',
                     cursor: 'pointer',
-                    background: viewMode === 'day' ? '#1890ff' : 'transparent',
+                    background: viewMode === 'day' ? '#1890ff' : '#fff',
                     color: viewMode === 'day' ? '#fff' : 'rgba(0,0,0,0.45)',
-                    borderBottom: '1px solid #e8e8e8'
+                    border: '1px solid #d9d9d9',
+                    borderRadius: 4,
+                    textAlign: 'center'
                   }}
                 >
-                  日视图
+                  当日
                 </div>
                 <div
-                  onClick={() => {
-                    setViewMode('week')
-                  }}
+                  onClick={() => setViewMode('week')}
                   style={{
+                    flex: 1,
                     padding: '8px 12px',
                     cursor: 'pointer',
-                    background: viewMode === 'week' ? '#1890ff' : 'transparent',
+                    background: viewMode === 'week' ? '#1890ff' : '#fff',
                     color: viewMode === 'week' ? '#fff' : 'rgba(0,0,0,0.45)',
-                    borderBottom: '1px solid #e8e8e8'
+                    border: '1px solid #d9d9d9',
+                    borderRadius: 4,
+                    textAlign: 'center'
                   }}
                 >
-                  7天视图
+                  七天
                 </div>
                 <div
                   onClick={() => setViewMode('month')}
                   style={{
+                    flex: 1,
                     padding: '8px 12px',
                     cursor: 'pointer',
-                    background: viewMode === 'month' ? '#1890ff' : 'transparent',
-                    color: viewMode === 'month' ? '#fff' : 'rgba(0,0,0,0.45)'
+                    background: viewMode === 'month' ? '#1890ff' : '#fff',
+                    color: viewMode === 'month' ? '#fff' : 'rgba(0,0,0,0.45)',
+                    border: '1px solid #d9d9d9',
+                    borderRadius: 4,
+                    textAlign: 'center'
                   }}
                 >
-                  30天视图
+                  30天
                 </div>
               </div>
             </div>
@@ -359,7 +364,7 @@ export function App() {
                         color: chartType === 'heatmap' ? '#fff' : 'rgba(0,0,0,0.45)'
                       }}
                     >
-                      日活跃时间热力图
+                      🟦日活跃时间热力图
                     </div>
                     <div
                       onClick={() => setChartType('apppie')}
@@ -371,7 +376,7 @@ export function App() {
                         borderTop: '1px solid #e8e8e8'
                       }}
                     >
-                      日活跃应用饼图
+                      🟢日活跃应用饼图
                     </div>
                     <div
                       onClick={() => setChartType('bar')}
@@ -383,7 +388,7 @@ export function App() {
                         borderTop: '1px solid #e8e8e8'
                       }}
                     >
-                      日活跃应用柱状图
+                      📊日活跃应用柱状图
                     </div>
                   </>
                 )}
@@ -399,7 +404,7 @@ export function App() {
                         color: chartType === 'weekheatmap' ? '#fff' : 'rgba(0,0,0,0.45)'
                       }}
                     >
-                      周活跃时间热力图
+                      🟦周活跃时间热力图
                     </div>
                     <div
                       onClick={() => setChartType('weekapppie')}
@@ -411,7 +416,7 @@ export function App() {
                         borderTop: '1px solid #e8e8e8'
                       }}
                     >
-                      周活跃应用饼图
+                      🟢周活跃应用饼图
                     </div>
                     <div
                       onClick={() => setChartType('weekbar')}
@@ -423,7 +428,7 @@ export function App() {
                         borderTop: '1px solid #e8e8e8'
                       }}
                     >
-                      周活跃应用柱状图
+                      📊周活跃应用柱状图
                     </div>
                   </>
                 )}
@@ -439,7 +444,7 @@ export function App() {
                         color: chartType === 'monthheatmap' ? '#fff' : 'rgba(0,0,0,0.45)'
                       }}
                     >
-                      月活跃时间热力图
+                      🟦月活跃时间热力图
                     </div>
                     <div
                       onClick={() => setChartType('monthapppie')}
@@ -451,7 +456,7 @@ export function App() {
                         borderTop: '1px solid #e8e8e8'
                       }}
                     >
-                      月活跃应用饼图
+                      🟢月活跃应用饼图
                     </div>
                     <div
                       onClick={() => setChartType('monthbar')}
@@ -463,7 +468,7 @@ export function App() {
                         borderTop: '1px solid #e8e8e8'
                       }}
                     >
-                      月活跃应用柱状图
+                      📊月活跃应用柱状图
                     </div>
                   </>
                 )}

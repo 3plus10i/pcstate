@@ -42,7 +42,20 @@ const SIZE = 20
 const GAP = 2
 const PADDING = 10
 
-function calculatePositions(count: number, size: number, gap: number): number[] {
+// 列（小时）按每4列设置2倍gap
+function calculateColPositions(count: number, size: number, gap: number): number[] {
+  const positions = [0]
+  let acc = size
+  for (let i = 1; i < count; i++) {
+    acc += i % 4 === 0 ? gap * 2 : gap
+    positions[i] = acc
+    acc += size
+  }
+  return positions
+}
+
+// 行（天）保持均匀间距
+function calculateRowPositions(count: number, size: number, gap: number): number[] {
   const positions = [0]
   let acc = size
   for (let i = 1; i < count; i++) {
@@ -73,8 +86,8 @@ export function WeeklyHeatmapChart({ hourlyActivity, days, dayStartHour }: Weekl
     const chart = chartInstanceRef.current
     chart.clear()
 
-    const cellX = calculatePositions(COLS, SIZE, GAP)
-    const cellY = calculatePositions(ROWS, SIZE, GAP)
+    const cellX = calculateColPositions(COLS, SIZE, GAP)
+    const cellY = calculateRowPositions(ROWS, SIZE, GAP)
     const width = cellX[COLS - 1] + SIZE + PADDING * 2
     const height = cellY[ROWS - 1] + SIZE + PADDING * 2
 
@@ -213,8 +226,8 @@ export function WeeklyHeatmapChart({ hourlyActivity, days, dayStartHour }: Weekl
     }
   }, [hourlyActivity, days])
 
-  const cellX = calculatePositions(COLS, SIZE, GAP)
-  const cellY = calculatePositions(ROWS, SIZE, GAP)
+const cellX = calculateColPositions(COLS, SIZE, GAP)
+    const cellY = calculateRowPositions(ROWS, SIZE, GAP)
   const chartWidth = cellX[COLS - 1] + SIZE + PADDING * 2
   const chartHeight = cellY[ROWS - 1] + SIZE + PADDING * 2
 
@@ -226,8 +239,8 @@ export function WeeklyHeatmapChart({ hourlyActivity, days, dayStartHour }: Weekl
 
   return (
     <div style={{ position: 'relative', marginLeft: 60, marginTop: 24 }}>
-      {/* 顶部小时标签（从dayStartHour开始） */}
-      {[0, 6, 12, 18].map(offset => {
+      {/* 顶部小时标签（每4列显示一个，从dayStartHour开始） */}
+      {[0, 4, 8, 12, 16, 20].map(offset => {
         const displayHour = (dayStartHour + offset) % 24
         return (
           <div key={offset} style={{
@@ -239,7 +252,7 @@ export function WeeklyHeatmapChart({ hourlyActivity, days, dayStartHour }: Weekl
             transform: 'translateX(-50%)',
             whiteSpace: 'nowrap'
           }}>
-            {displayHour}:00
+            {displayHour}时
           </div>
         )
       })}
@@ -249,7 +262,7 @@ export function WeeklyHeatmapChart({ hourlyActivity, days, dayStartHour }: Weekl
         <div key={day} style={{
           position: 'absolute',
           left: -50,
-          top: PADDING + cellY[index] + 8,
+          top: PADDING + cellY[index],
           fontSize: 11,
           color: 'rgba(0,0,0,0.45)',
           textAlign: 'right',

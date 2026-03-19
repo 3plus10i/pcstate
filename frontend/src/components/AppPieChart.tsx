@@ -2,16 +2,7 @@ import { useEffect, useRef } from 'react'
 import * as echarts from 'echarts'
 
 interface AppPieChartProps {
-  appData: Record<string, number>
-}
-
-function formatTooltipMinutes(minutes: number): string {
-  if (minutes >= 60) {
-    const hours = Math.floor(minutes / 60)
-    const mins = minutes % 60
-    return `${hours}h ${mins}m `
-  }
-  return `${minutes}分钟`
+  appData: Record<string, number>  // 已处理<5%合并的应用总时长
 }
 
 export function AppPieChart({ appData }: AppPieChartProps) {
@@ -27,10 +18,7 @@ export function AppPieChart({ appData }: AppPieChartProps) {
     const chart = chartInstanceRef.current
     chart.clear()
 
-    const entries = Object.entries(appData)
-    
-    if (entries.length === 0) {
-      chart.clear()
+    if (!appData || Object.keys(appData).length === 0) {
       chart.setOption({
         title: {
           text: '暂无应用数据',
@@ -45,47 +33,13 @@ export function AppPieChart({ appData }: AppPieChartProps) {
       return
     }
 
-    const total = entries.reduce((sum, [_, value]) => sum + value, 0)
-    
-    if (total === 0) {
-      chart.clear()
-      chart.setOption({
-        title: {
-          text: '暂无应用数据',
-          left: 'center',
-          top: 'center',
-          textStyle: {
-            fontSize: 14,
-            color: 'rgba(0,0,0,0.45)'
-          }
-        }
-      })
-      return
-    }
-
-    const data = entries
-      .map(([name, value]) => {
-        const percentage = (value / total) * 100
-        return {
-          name: name,
-          value: value,
-          percentage: percentage
-        }
-      })
+    // 准备饼图数据
+    const pieData = Object.entries(appData)
+      .map(([app, minutes]) => ({
+        name: app,
+        value: minutes
+      }))
       .sort((a, b) => b.value - a.value)
-
-    const topApps = data.filter(item => item.percentage >= 5)
-    const otherApps = data.filter(item => item.percentage < 5)
-    
-    let displayData = [...topApps]
-    if (otherApps.length > 0) {
-      const otherValue = otherApps.reduce((sum, item) => sum + item.value, 0)
-      displayData.push({
-        name: '其他',
-        value: otherValue,
-        percentage: (otherValue / total) * 100
-      })
-    }
 
     const colors = [
       '#1890ff', '#52c41a', '#faad14', '#f5222d', '#722ed1',
@@ -93,10 +47,6 @@ export function AppPieChart({ appData }: AppPieChartProps) {
     ]
 
     const option: echarts.EChartsOption = {
-      title: {
-        show: false
-      },
-      animation: true,
       tooltip: {
         trigger: 'item',
         backgroundColor: '#fff',
@@ -108,47 +58,62 @@ export function AppPieChart({ appData }: AppPieChartProps) {
         },
         padding: [8, 12],
         formatter: (params: any) => {
-          const percent = params.percent
-          const timeStr = formatTooltipMinutes(params.value)
-          return `${params.name}：${timeStr} (${percent}%)`
+          const minutes = params.value
+          const hours = Math.floor(minutes / 60)
+          const mins = minutes % 60
+          const timeStr = hours > 0 ? `${hours}h${mins}m` : `${mins}m`
+          return `${params.name}<br/>${timeStr} (${params.percent}%)`
         }
       },
       legend: {
         orient: 'vertical',
-        right: 10,
-        top: 'center',
+        left: 'left',
         itemWidth: 12,
         itemHeight: 12,
         textStyle: {
-          fontSize: 12,
+          fontSize: 11,
           color: 'rgba(0,0,0,0.65)'
         },
-        data: displayData.map(item => item.name)
+        formatter: (name: string) => {
+          const minutes = appData[name] || 0
+          const hours = Math.floor(minutes / 60)
+          const mins = minutes % 60
+          if (hours > 0) {
+            return `${name} (${hours}h${mins}m)`
+          }
+          return `${name} (${mins}m)`
+        }
       },
       series: [
         {
-          type: 'pie' as const,
-          radius: ['40%', '70%'],
-          center: ['35%', '50%'],
-          data: displayData,
+          name: '应用时长',
+          type: 'pie',
+          radius: ['40%', '75%'],
+          center: ['60%', '50%'],
+          avoidLabelOverlap: false,
           itemStyle: {
             borderRadius: 4,
             borderColor: '#fff',
             borderWidth: 2
           },
           label: {
-            show: false
+            show: false,
+            position: 'center'
           },
           emphasis: {
-            itemStyle: {
-              shadowBlur: 10,
-              shadowOffsetX: 0,
-              shadowColor: 'rgba(0, 0, 0, 0.5)'
+            label: {
+              show: true,
+              fontSize: 14,
+              fontWeight: 'bold'
             }
-          }
+          },
+          labelLine: {
+            show: false
+          },
+          data: pieData,
+          color: colors
         }
-      ],
-      color: colors
+      ]
     }
 
     chart.setOption(option, { notMerge: true })

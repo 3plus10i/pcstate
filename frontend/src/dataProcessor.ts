@@ -14,7 +14,8 @@ export interface PcStateData {
 export interface ProcessedRecord {
   slots: number[]
   appHourly: Record<string, number>[]  // 合并后的活动应用数据
-  appTotals: Record<string, number>  // 基于活动应用的总时长
+  appTotals: Record<string, number>  // 基于活动应用的总时长（原始）
+  dayAppTotals: Record<string, number>  // 合并<5%应用后的总时长
 }
 
 export interface ProcessedWeekRecord {
@@ -164,10 +165,29 @@ export function getProcessedRecord(data: PcStateData, date: Date): ProcessedReco
   const mergedAppHourly = mergeHourlyData(appHourly, windowHourly)
   const appTotals = calculateAppTotals(mergedAppHourly)
 
+  // 9. 处理占比<5%的应用，合并为"其他"
+  const totalMinutes = Object.values(appTotals).reduce((sum, m) => sum + m, 0)
+  const dayAppTotals: Record<string, number> = {}
+  let otherMinutes = 0
+
+  Object.entries(appTotals).forEach(([app, minutes]) => {
+    const percentage = totalMinutes > 0 ? minutes / totalMinutes : 0
+    if (percentage < 0.05) {
+      otherMinutes += minutes
+    } else {
+      dayAppTotals[app] = minutes
+    }
+  })
+
+  if (otherMinutes > 0) {
+    dayAppTotals['其他'] = otherMinutes
+  }
+
   return {
     slots,
     appHourly: mergedAppHourly,  // 使用合并后的数据
-    appTotals
+    appTotals,
+    dayAppTotals
   }
 }
 
